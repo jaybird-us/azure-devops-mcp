@@ -1,5 +1,5 @@
 {
-  "name": "azure-devops-mcp",
+  "name": "@jybrd/azure-devops-mcp",
   "version": "1.0.0",
   "description": "Model Context Protocol server for Azure DevOps integration - enables Claude to interact with work items, projects, and boards",
   "keywords": [
