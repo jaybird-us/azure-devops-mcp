@@ -1,0 +1,66 @@
+{
+  "name": "azure-devops-mcp",
+  "version": "1.0.0",
+  "description": "Model Context Protocol server for Azure DevOps integration - enables Claude to interact with work items, projects, and boards",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "azure",
+    "azure-devops",
+    "devops",
+    "work-items",
+    "agile",
+    "scrum",
+    "project-management",
+    "claude",
+    "ai-tools"
+  ],
+  "author": {
+    "name": "Jeremy Paxton",
+    "email": "jeremy.paxton@jybrd.io"
+  },
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "azure-devops-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE",
+    "mcp.json"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "clean": "rm -rf dist",
+    "rebuild": "npm run clean && npm run build",
+    "prepublishOnly": "npm run rebuild",
+    "test": "echo \"No tests specified yet\" && exit 0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "esbuild": "^0.19.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jeremy-paxton_jybrd/azure-devops-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jeremy-paxton_jybrd/azure-devops-mcp/issues"
+  },
+  "homepage": "https://github.com/jeremy-paxton_jybrd/azure-devops-mcp#readme",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}

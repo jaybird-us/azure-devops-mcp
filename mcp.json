@@ -1,0 +1,241 @@
+{
+  "name": "azure-devops-mcp",
+  "title": "Azure DevOps MCP Server",
+  "description": "Seamlessly interact with Azure DevOps work items, projects, and boards through Claude. Create, update, and query work items using natural language.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Jeremy Paxton",
+    "email": "jeremy.paxton@jybrd.io",
+    "url": "https://github.com/jeremy-paxton_jybrd"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/jeremy-paxton_jybrd/azure-devops-mcp",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jeremy-paxton_jybrd/azure-devops-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jeremy-paxton_jybrd/azure-devops-mcp/issues"
+  },
+  "categories": ["productivity", "development", "project-management"],
+  "keywords": [
+    "azure",
+    "devops",
+    "work-items",
+    "agile",
+    "scrum",
+    "project-management",
+    "task-management"
+  ],
+  "runtime": "node",
+  "requirements": {
+    "node": ">=18.0.0",
+    "azure-cli": "latest",
+    "azure-devops-extension": "required"
+  },
+  "installation": {
+    "npm": {
+      "package": "azure-devops-mcp",
+      "global": true
+    },
+    "manual": {
+      "repository": "https://github.com/jeremy-paxton_jybrd/azure-devops-mcp",
+      "instructions": "Clone the repository, run 'npm install' and 'npm run build'"
+    }
+  },
+  "configuration": {
+    "claude_desktop": {
+      "command": "npx",
+      "args": ["azure-devops-mcp"]
+    },
+    "environment": {
+      "optional": {
+        "AZURE_DEVOPS_ORG": "Your Azure DevOps organization URL",
+        "AZURE_DEVOPS_PROJECT": "Default project name"
+      }
+    }
+  },
+  "features": [
+    "List and manage Azure DevOps projects",
+    "Create, update, and query work items",
+    "Add comments and track discussions",
+    "Smart query shortcuts for personal productivity",
+    "Support for all work item types (Tasks, Bugs, User Stories, Features, Epics)",
+    "Automatic organization configuration"
+  ],
+  "tools": [
+    {
+      "name": "list_projects",
+      "description": "List all projects in your Azure DevOps organization",
+      "parameters": []
+    },
+    {
+      "name": "query_work_items",
+      "description": "Query work items using WIQL or predefined shortcuts",
+      "parameters": [
+        {
+          "name": "query",
+          "type": "string",
+          "required": true,
+          "description": "WIQL query or shortcuts: 'my-items', 'my-bugs', 'my-tasks', 'recent'"
+        },
+        {
+          "name": "project",
+          "type": "string",
+          "required": false,
+          "description": "Limit results to specific project"
+        }
+      ]
+    },
+    {
+      "name": "get_work_item",
+      "description": "Get detailed information about a specific work item",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "number",
+          "required": true,
+          "description": "Work item ID"
+        },
+        {
+          "name": "fields",
+          "type": "string",
+          "required": false,
+          "description": "Comma-separated list of fields to retrieve"
+        }
+      ]
+    },
+    {
+      "name": "create_work_item",
+      "description": "Create a new work item",
+      "parameters": [
+        {
+          "name": "type",
+          "type": "string",
+          "required": true,
+          "description": "Work item type",
+          "enum": ["Task", "Bug", "User Story", "Feature", "Epic", "Issue"]
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "required": true,
+          "description": "Work item title"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "required": false,
+          "description": "Detailed description"
+        },
+        {
+          "name": "assigned_to",
+          "type": "string",
+          "required": false,
+          "description": "Assignee email or '@Me'"
+        },
+        {
+          "name": "tags",
+          "type": "string",
+          "required": false,
+          "description": "Semicolon-separated tags"
+        },
+        {
+          "name": "project",
+          "type": "string",
+          "required": false,
+          "description": "Target project name"
+        }
+      ]
+    },
+    {
+      "name": "update_work_item",
+      "description": "Update an existing work item",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "number",
+          "required": true,
+          "description": "Work item ID"
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "required": false,
+          "description": "New title"
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "required": false,
+          "description": "New state",
+          "enum": ["New", "Active", "Resolved", "Closed", "Removed"]
+        },
+        {
+          "name": "assigned_to",
+          "type": "string",
+          "required": false,
+          "description": "New assignee"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "required": false,
+          "description": "New description"
+        },
+        {
+          "name": "comment",
+          "type": "string",
+          "required": false,
+          "description": "Comment to add with update"
+        }
+      ]
+    },
+    {
+      "name": "add_comment",
+      "description": "Add a comment to a work item",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "number",
+          "required": true,
+          "description": "Work item ID"
+        },
+        {
+          "name": "comment",
+          "type": "string",
+          "required": true,
+          "description": "Comment text"
+        }
+      ]
+    },
+    {
+      "name": "list_my_work",
+      "description": "List work items assigned to me, organized by state",
+      "parameters": [
+        {
+          "name": "include_recently_completed",
+          "type": "boolean",
+          "required": false,
+          "description": "Include items completed in last 7 days",
+          "default": false
+        }
+      ]
+    }
+  ],
+  "dependencies": {
+    "external": {
+      "azure-cli": {
+        "required": true,
+        "description": "Azure CLI must be installed and configured",
+        "installation": "https://docs.microsoft.com/en-us/cli/azure/install-azure-cli"
+      },
+      "azure-devops-extension": {
+        "required": true,
+        "description": "Azure DevOps extension for Azure CLI",
+        "installation": "az extension add --name azure-devops"
+      }
+    }
+  },
+  "disclaimer": "This is an unofficial tool that interfaces with Azure DevOps. It is not affiliated with or endorsed by Microsoft Corporation."
+}
