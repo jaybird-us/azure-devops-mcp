@@ -10,7 +10,7 @@ export async function ensureOrgConfigured(): Promise<string> {
     let org = config.defaults?.organization;
     
     if (!org) {
-        org = 'https://dev.azure.com/jybrd';
+        org = 'https://dev.azure.com/';
         await execAsync(`az devops configure --defaults organization=${org}`);
     }
     
