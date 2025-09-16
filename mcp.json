@@ -6,16 +6,16 @@
   "author": {
     "name": "Jeremy Paxton",
     "email": "jeremy.paxton@jybrd.io",
-    "url": "https://github.com/jeremy-paxton_jybrd"
+    "url": "https://github.com/jaybird-us"
   },
   "license": "MIT",
-  "homepage": "https://github.com/jeremy-paxton_jybrd/azure-devops-mcp",
+  "homepage": "https://github.com/jaybird-us/azure-devops-mcp",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jeremy-paxton_jybrd/azure-devops-mcp.git"
+    "url": "https://github.com/jaybird-us/azure-devops-mcp.git"
   },
   "bugs": {
-    "url": "https://github.com/jeremy-paxton_jybrd/azure-devops-mcp/issues"
+    "url": "https://github.com/jaybird-us/azure-devops-mcp/issues"
   },
   "categories": ["productivity", "development", "project-management"],
   "keywords": [
@@ -39,7 +39,7 @@
       "global": true
     },
     "manual": {
-      "repository": "https://github.com/jeremy-paxton_jybrd/azure-devops-mcp",
+      "repository": "https://github.com/jaybird-us/azure-devops-mcp",
       "instructions": "Clone the repository, run 'npm install' and 'npm run build'"
     }
   },
