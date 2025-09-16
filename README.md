@@ -12,6 +12,14 @@ A Model Context Protocol (MCP) server that enables Claude to interact with Azure
   - List all projects in your Azure DevOps organization
   - Get detailed project information and statistics
 
+- **Sprint & Iteration Management** 🆕
+  - List all iterations/sprints in a project
+  - Get the current active sprint
+  - View work items in specific iterations
+  - Move work items between sprints
+  - Get detailed iteration statistics
+  - Check team capacity for iterations
+
 - **Work Item Operations**
   - Query work items using WIQL or predefined shortcuts
   - Create new work items (Tasks, Bugs, User Stories, Features, Epics, Issues)
@@ -196,6 +204,53 @@ List all work items assigned to you, organized by state.
 **Parameters:**
 - `include_recently_completed` (optional): Include items completed in the last 7 days
 
+### Sprint & Iteration Tools 🆕
+
+### `list_iterations`
+List all iterations/sprints in a project.
+
+**Parameters:**
+- `project` (required): Project name
+- `team` (optional): Team name
+- `depth` (optional): Depth of iteration tree
+
+### `get_current_iteration`
+Get the current active sprint/iteration.
+
+**Parameters:**
+- `project` (required): Project name
+- `team` (optional): Team name
+
+### `get_iteration_work_items`
+Get all work items in a specific iteration.
+
+**Parameters:**
+- `project` (required): Project name
+- `iteration` (required): Iteration name or path
+
+### `move_to_iteration`
+Move a work item to a different iteration/sprint.
+
+**Parameters:**
+- `id` (required): Work item ID
+- `iteration` (required): Target iteration name
+- `project` (optional): Project name
+
+### `get_iteration_details`
+Get detailed information about an iteration including work items grouped by type and state.
+
+**Parameters:**
+- `project` (required): Project name
+- `iteration` (required): Iteration name
+
+### `get_iteration_capacity`
+Get iteration capacity and team information.
+
+**Parameters:**
+- `project` (required): Project name
+- `iteration` (required): Iteration name
+- `team` (optional): Team name
+
 ## 💬 Usage Examples
 
 Once configured, you can ask Claude:
@@ -207,6 +262,11 @@ Once configured, you can ask Claude:
 - "Update task 281 to Completed state"
 - "What bugs are assigned to me?"
 - "Show me work items that changed this week"
+- "List all sprints in the WebApp project"
+- "What's in our current sprint?"
+- "Move task 123 to the next sprint"
+- "Show me all work items in Sprint 5"
+- "Get details about Sprint 3"
 
 ## 🔧 Development
 

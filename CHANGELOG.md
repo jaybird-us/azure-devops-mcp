@@ -30,6 +30,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Troubleshooting guide
 - Contributing guidelines
 
+## [1.1.0] - 2025-01-15
+
+### Added
+- Sprint and iteration support with 6 new tools:
+  - `list_iterations` - List all iterations/sprints in a project
+  - `get_current_iteration` - Get the current active sprint
+  - `get_iteration_work_items` - Get all work items in a specific iteration
+  - `move_to_iteration` - Move work items between sprints
+  - `get_iteration_details` - Get detailed iteration statistics
+  - `get_iteration_capacity` - Check team capacity for iterations
+- Proper modular structure with separate handlers and types
+- Import ensureOrgConfigured from helpers module
+
+### Improved
+- Better code organization with handlers and types directories
+- Enhanced iteration management capabilities for Agile teams
+
 ## [1.0.1] - 2025-01-15
 
 ### Fixed
