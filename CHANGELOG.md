@@ -30,6 +30,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Troubleshooting guide
 - Contributing guidelines
 
+## [1.0.1] - 2025-01-15
+
+### Fixed
+- Removed hardcoded organization URL
+- Added environment variable support for organization configuration
+- Updated documentation with correct package name (@jybrd/azure-devops-mcp)
+- Fixed installation instructions in README
+
+### Changed
+- Organization configuration now required via environment variable or Azure CLI
+- Improved error messages for missing configuration
+
 ## [Unreleased]
 
 ### Planned Features
@@ -45,4 +57,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-For more information about changes, please see the [commit history](https://github.com/yourusername/azure-devops-mcp/commits/main).
+For more information about changes, please see the [commit history](https://github.com/jaybird-us/azure-devops-mcp/commits/main).

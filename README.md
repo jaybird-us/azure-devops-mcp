@@ -66,14 +66,14 @@ Before installing this MCP server, ensure you have:
 ### Option 1: Install from npm (Recommended)
 
 ```bash
-npm install -g azure-devops-mcp
+npm install -g @jybrd/azure-devops-mcp
 ```
 
 ### Option 2: Install from Source
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/azure-devops-mcp.git
+git clone https://github.com/jaybird-us/azure-devops-mcp.git
 cd azure-devops-mcp
 
 # Install dependencies
@@ -101,7 +101,10 @@ Add the following to your Claude Desktop configuration file:
   "mcpServers": {
     "azure-devops": {
       "command": "npx",
-      "args": ["azure-devops-mcp"]
+      "args": ["@jybrd/azure-devops-mcp"],
+      "env": {
+        "AZURE_DEVOPS_ORG": "https://dev.azure.com/YOUR_ORG"
+      }
     }
   }
 }
@@ -113,22 +116,25 @@ For local development installation:
   "mcpServers": {
     "azure-devops": {
       "command": "node",
-      "args": ["/absolute/path/to/azure-devops-mcp/dist/index.js"]
+      "args": ["/absolute/path/to/azure-devops-mcp/dist/index.js"],
+      "env": {
+        "AZURE_DEVOPS_ORG": "https://dev.azure.com/YOUR_ORG"
+      }
     }
   }
 }
 ```
 
-### Environment Configuration (Optional)
+### Environment Configuration (Required)
 
-The server automatically configures your Azure DevOps organization, but you can override settings with environment variables:
+You must configure your Azure DevOps organization in one of two ways:
 
+**Option 1: In Claude Desktop config (Recommended)**
+- Add the `"env"` section with your organization URL as shown above
+
+**Option 2: Via Azure CLI**
 ```bash
-# Optional: Set default organization
-export AZURE_DEVOPS_ORG=https://dev.azure.com/your-org
-
-# Optional: Set default project
-export AZURE_DEVOPS_PROJECT=your-project-name
+az devops configure --defaults organization=https://dev.azure.com/YOUR_ORG
 ```
 
 ## 🛠️ Available Tools
@@ -291,7 +297,7 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 
 ## 📧 Support
 
-For issues, questions, or suggestions, please [open an issue](https://github.com/yourusername/azure-devops-mcp/issues) on GitHub.
+For issues, questions, or suggestions, please [open an issue](https://github.com/jaybird-us/azure-devops-mcp/issues) on GitHub.
 
 ---
 
