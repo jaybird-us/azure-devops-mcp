@@ -2,12 +2,12 @@ import { ToolDefinition } from '../types.js';
 import { workItemTools } from './workitems.js';
 import { discoveryTools } from './discovery.js';
 import { projectTools } from './projects.js';
-import { queryTools } from './queries.js';
+import { iterationTools } from './iterations.js';
 
-// Combine all tools
+// Combine all tools (26 total) - Query tools removed
 export const allTools: ToolDefinition[] = [
-    ...workItemTools,
-    ...discoveryTools,
-    ...projectTools,
-    ...queryTools,
+    ...workItemTools,    // 6 tools
+    ...discoveryTools,   // 9 tools
+    ...projectTools,     // 6 tools
+    ...iterationTools,   // 5 tools
 ];

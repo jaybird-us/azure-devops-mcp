@@ -6,6 +6,8 @@
 
 A Model Context Protocol (MCP) server that enables Claude to interact with Azure DevOps work items, projects, and boards directly through natural language.
 
+**Version 2.1.0** - Now with 26 working tools (query management tools removed for reliability)
+
 ## 🎯 Features
 
 - **Project Management**
@@ -18,7 +20,6 @@ A Model Context Protocol (MCP) server that enables Claude to interact with Azure
   - View work items in specific iterations
   - Move work items between sprints
   - Get detailed iteration statistics
-  - Check team capacity for iterations
 
 - **Work Item Operations**
   - Query work items using WIQL or predefined shortcuts
@@ -145,7 +146,15 @@ You must configure your Azure DevOps organization in one of two ways:
 az devops configure --defaults organization=https://dev.azure.com/YOUR_ORG
 ```
 
-## 🛠️ Available Tools
+## 🛠️ Available Tools (26 Total)
+
+**Categories:**
+- **Work Items** (6 tools): Query, create, update, comment on work items
+- **Discovery** (9 tools): Explore fields, types, states, and relationships
+- **Projects** (6 tools): Manage projects, teams, repos, and pipelines
+- **Iterations** (5 tools): Handle sprints and iteration planning
+
+> **Note:** Query management tools have been removed in v2.1.0 for improved reliability
 
 ### `list_projects`
 Lists all projects in your Azure DevOps organization with details including name, description, state, and visibility.
@@ -242,14 +251,6 @@ Get detailed information about an iteration including work items grouped by type
 **Parameters:**
 - `project` (required): Project name
 - `iteration` (required): Iteration name
-
-### `get_iteration_capacity`
-Get iteration capacity and team information.
-
-**Parameters:**
-- `project` (required): Project name
-- `iteration` (required): Iteration name
-- `team` (optional): Team name
 
 ## 💬 Usage Examples
 

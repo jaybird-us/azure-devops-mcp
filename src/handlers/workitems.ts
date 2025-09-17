@@ -2,9 +2,33 @@ import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 import { buildQuery } from '../helpers/queryBuilder.js';
 import { ensureOrgConfigured } from '../helpers/ensureOrg.js';
+import { fieldResolver } from '../helpers/fieldResolver.js';
 import { HandlerResult } from '../types.js';
 
 const execAsync = promisify(exec);
+
+/**
+ * Helper to resolve @Me to current user's email
+ * Azure CLI doesn't support @Me token, so we need to resolve it
+ */
+async function resolveAssignedTo(value: string): Promise<string> {
+    if (value === '@Me') {
+        try {
+            // Get current user's email from Azure CLI
+            const { stdout } = await execAsync('az account show --output json');
+            const account = JSON.parse(stdout);
+            const email = account.user?.name || account.user?.email;
+            if (email) {
+                return email;
+            }
+        } catch {
+            // If we can't get email, return empty (unassigned)
+            console.warn('Could not resolve @Me to email. Work item will be unassigned.');
+            return '';
+        }
+    }
+    return value;
+}
 
 export async function handleQueryWorkItems(args: any): Promise<HandlerResult> {
     await ensureOrgConfigured();
@@ -90,7 +114,11 @@ export async function handleCreateWorkItem(args: any): Promise<HandlerResult> {
         command += ` --description "${desc}"`;
     }
     if (args.assigned_to) {
-        command += ` --assigned-to "${args.assigned_to}"`;
+        // Resolve @Me to actual email
+        const assignedTo = await resolveAssignedTo(args.assigned_to);
+        if (assignedTo) {
+            command += ` --assigned-to "${assignedTo}"`;
+        }
     }
     if (args.tags) {
         command += ` --fields "System.Tags=${args.tags}"`;
@@ -123,7 +151,13 @@ export async function handleUpdateWorkItem(args: any): Promise<HandlerResult> {
 
     if (args.title) command += ` --title "${args.title}"`;
     if (args.state) command += ` --state "${args.state}"`;
-    if (args.assigned_to) command += ` --assigned-to "${args.assigned_to}"`;
+    if (args.assigned_to) {
+        // Resolve @Me to actual email
+        const assignedTo = await resolveAssignedTo(args.assigned_to);
+        if (assignedTo) {
+            command += ` --assigned-to "${assignedTo}"`;
+        }
+    }
     if (args.description) {
         const desc = args.description.replace(/"/g, '\\"');
         command += ` --description "${desc}"`;
@@ -173,41 +207,108 @@ export async function handleAddComment(args: any): Promise<HandlerResult> {
 
 export async function handleListMyWork(args: any): Promise<HandlerResult> {
     await ensureOrgConfigured();
+    
+    // Base query for active items
     let query = `SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType] 
               FROM workitems 
               WHERE [System.AssignedTo] = @Me 
               AND [System.State] <> 'Closed' 
               AND [System.State] <> 'Removed'`;
 
+    // Handle recently completed items with field resolution
     if (args.include_recently_completed) {
-        query = `SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType] 
-            FROM workitems 
-            WHERE [System.AssignedTo] = @Me 
-            AND ([System.State] <> 'Closed' 
-                 OR [System.ClosedDate] >= @Today - 7)`;
+        try {
+            // Use field resolver to get the correct ClosedDate field
+            const closedDateField = await fieldResolver.resolve('ClosedDate');
+            
+            // Check if the field exists
+            const fieldExists = await fieldResolver.fieldExists(closedDateField);
+            
+            if (fieldExists) {
+                query = `SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType] 
+                    FROM workitems 
+                    WHERE [System.AssignedTo] = @Me 
+                    AND ([System.State] <> 'Closed' 
+                         OR [${closedDateField}] >= @Today - 7)`;
+            } else {
+                // Fallback: just get all assigned items including closed ones
+                console.warn('ClosedDate field not found. Including all closed items assigned to you.');
+                query = `SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType] 
+                    FROM workitems 
+                    WHERE [System.AssignedTo] = @Me`;
+            }
+        } catch (error) {
+            // If field resolution fails, fall back to default behavior
+            console.warn('Field resolution failed. Using fallback query.');
+            query = `SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType] 
+                FROM workitems 
+                WHERE [System.AssignedTo] = @Me`;
+        }
     }
 
-    const command = `az boards query --wiql "${query}" --output json`;
+    try {
+        const command = `az boards query --wiql "${query}" --output json`;
+        const { stdout } = await execAsync(command);
+        const items = JSON.parse(stdout);
 
-    const { stdout } = await execAsync(command);
-    const items = JSON.parse(stdout);
-
-    // Group by state
-    const grouped: Record<string, any[]> = {};
-    items.forEach((item: any) => {
-        const state = item.fields?.['System.State'] || 'Unknown';
-        if (!grouped[state]) grouped[state] = [];
-        grouped[state].push({
-            id: item.id,
-            type: item.fields?.['System.WorkItemType'],
-            title: item.fields?.['System.Title'],
+        // Group by state
+        const grouped: Record<string, any[]> = {};
+        items.forEach((item: any) => {
+            const state = item.fields?.['System.State'] || 'Unknown';
+            if (!grouped[state]) grouped[state] = [];
+            grouped[state].push({
+                id: item.id,
+                type: item.fields?.['System.WorkItemType'],
+                title: item.fields?.['System.Title'],
+            });
         });
-    });
 
-    return {
-        content: [{
-            type: 'text',
-            text: JSON.stringify(grouped, null, 2),
-        }],
-    };
+        return {
+            content: [{
+                type: 'text',
+                text: JSON.stringify(grouped, null, 2),
+            }],
+        };
+    } catch (error: any) {
+        // If the query fails, try a simpler query without the ClosedDate field
+        if (args.include_recently_completed && error.message.includes('field')) {
+            // Retry without the ClosedDate filter
+            const fallbackQuery = `SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType] 
+                FROM workitems 
+                WHERE [System.AssignedTo] = @Me`;
+            
+            try {
+                const command = `az boards query --wiql "${fallbackQuery}" --output json`;
+                const { stdout } = await execAsync(command);
+                const items = JSON.parse(stdout);
+
+                // Group by state
+                const grouped: Record<string, any[]> = {};
+                items.forEach((item: any) => {
+                    const state = item.fields?.['System.State'] || 'Unknown';
+                    if (!grouped[state]) grouped[state] = [];
+                    grouped[state].push({
+                        id: item.id,
+                        type: item.fields?.['System.WorkItemType'],
+                        title: item.fields?.['System.Title'],
+                    });
+                });
+
+                return {
+                    content: [{
+                        type: 'text',
+                        text: JSON.stringify({
+                            ...grouped,
+                            _note: 'ClosedDate field not available in this process template. Showing all assigned items.'
+                        }, null, 2),
+                    }],
+                };
+            } catch (fallbackError: any) {
+                throw fallbackError;
+            }
+        }
+        
+        // Re-throw original error if not field-related
+        throw error;
+    }
 }

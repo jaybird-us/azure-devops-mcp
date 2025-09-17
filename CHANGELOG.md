@@ -5,6 +5,58 @@ All notable changes to the Azure DevOps MCP Server will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2025-01-16
+
+### Fixed
+- **Critical:** Fixed 12 broken tools that were using non-existent Azure CLI commands
+- Discovery tools now use Azure DevOps REST API via `az devops invoke`
+- `list_my_work` now dynamically resolves ClosedDate field for different process templates
+- `check_field_exists` tool now properly validates field existence
+- Iteration tools now work correctly:
+  - `move_to_iteration` uses correct `--iteration` parameter
+  - `get_iteration_details` uses list command instead of show (which requires GUID)
+- Work item tools now handle @Me token:
+  - Resolves @Me to current user's email address
+  - Falls back to unassigned if email can't be determined
+
+### Added
+- REST API infrastructure (`azureDevOpsInvoke.ts`) for calling Azure DevOps APIs
+- Field resolver system (`fieldResolver.ts`) for handling process template differences
+- Adaptive field resolution for process template compatibility
+- Automatic field discovery and caching
+- Enhanced error handling with specific error messages
+- REST API health check in healthcheck tool
+- `resolveAssignedTo()` helper for @Me token resolution
+
+### Changed
+- All discovery tools now use REST API instead of Azure CLI commands
+- Field references are now dynamically resolved based on available fields
+- No more hardcoded field assumptions (except System.* fields)
+- Total tool count from 31 to 26
+
+### Removed
+- Query management tools (5 tools removed for improved reliability):
+  - `list_saved_queries`
+  - `run_saved_query`
+  - `create_saved_query`
+  - `update_saved_query`
+  - `delete_saved_query`
+
+### Technical Details
+- Implemented `az devops invoke` wrapper for REST API calls
+- Field resolver caches discovered fields for performance
+- Graceful fallback when fields don't exist in process template
+- Temp file handling for POST/PATCH request bodies
+- API version 7.1 used consistently
+- Improved error handling in iteration handlers
+- Better field existence checking with fallbacks
+
+## [2.0.0] - 2025-01-15
+
+### Added
+- Version 2.0 major release with 31 total tools
+- Complete refactor for improved modularity
+
 ## [1.0.0] - 2024-01-15
 
 ### Added
