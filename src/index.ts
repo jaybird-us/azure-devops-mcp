@@ -10,12 +10,13 @@ import * as workItemHandlers from './handlers/workitems.js';
 import * as discoveryHandlers from './handlers/discovery.js';
 import * as projectHandlers from './handlers/projects.js';
 import * as iterationHandlers from './handlers/iterations.js';
+import * as relationHandlers from './handlers/relations.js';
 
 // Create server
 const server = new Server(
     {
         name: 'azure-devops-mcp',
-        version: '2.1.0',
+        version: '2.2.0',
     },
     {
         capabilities: {
@@ -24,7 +25,7 @@ const server = new Server(
     }
 );
 
-// Register all 26 tools using the modular definitions
+// Register all 30 tools using the modular definitions
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: allTools,
 }));
@@ -119,8 +120,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 result = await projectHandlers.handleGetProjectStats(args);
                 break;
 
-            // Query Operations removed - 5 tools removed
-
             // Iteration Operations (5 tools)
             case 'list_iterations':
                 result = await iterationHandlers.listIterations(args as any);
@@ -163,6 +162,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     }],
                 };
 
+            // Relation Operations (4 tools) - NEW!
+            case 'add_work_item_relation':
+                result = await relationHandlers.handleAddWorkItemRelation(args as any);
+                break;
+            case 'remove_work_item_relation':
+                result = await relationHandlers.handleRemoveWorkItemRelation(args as any);
+                break;
+            case 'get_work_item_relations':
+                result = await relationHandlers.handleGetWorkItemRelations(args as any);
+                break;
+            case 'list_relation_types':
+                result = await relationHandlers.handleListRelationTypes(args as any);
+                break;
+
             default:
                 throw new Error(`Unknown tool: ${name}`);
         }
@@ -199,7 +212,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
-    console.error('Azure DevOps MCP Server v2.1.0 running with 26 tools enabled...');
+    console.error('Azure DevOps MCP Server v2.2.0 running with 30 tools enabled...');
 }
 
 main().catch(console.error);

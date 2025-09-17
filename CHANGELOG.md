@@ -5,6 +5,33 @@ All notable changes to the Azure DevOps MCP Server will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2025-01-18
+
+### Added
+- **Work Item Relationship Management** - 4 new tools for managing relationships between work items:
+  - `add_work_item_relation` - Add relationships between work items (Parent/Child, Related, Dependencies, etc.)
+  - `remove_work_item_relation` - Remove relationships between work items
+  - `get_work_item_relations` - View all relationships for a work item with friendly categorization
+  - `list_relation_types` - List all available relation types in Azure DevOps
+- User-friendly relation type mapping (e.g., use "Parent" instead of "System.LinkTypes.Hierarchy-Reverse")
+- Support for multiple target IDs in relation operations
+- Categorized relation type listing for better organization
+- Comprehensive error handling and helpful hints for relation operations
+
+### Features
+- Build work item hierarchies (Epic → Feature → User Story → Task)
+- Track dependencies between work items
+- Mark duplicate work items
+- Connect test cases to requirements
+- Support for custom relationship types
+- Friendly relation names with automatic mapping to Azure DevOps internal types
+
+### Technical Details
+- Added `src/types/relations.ts` for relation type definitions
+- Added `src/tools/relations.ts` for relation tool definitions
+- Added `src/handlers/relations.ts` for relation operation handlers
+- Total tool count increased from 26 to 30 tools
+
 ## [2.1.0] - 2025-01-16
 
 ### Fixed
@@ -115,14 +142,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Planned Features
 - Batch operations for multiple work items
-- Work item relationships and links management
-- Sprint and iteration support
 - Board and backlog operations
 - Advanced filtering and search capabilities
 - Export functionality (CSV, JSON)
 - Work item templates
 - Custom field support
 - Webhook integration for real-time updates
+- Wiki page management
+- Pipeline execution and monitoring
 
 ---
 

@@ -170,6 +170,123 @@ az devops configure --defaults organization= project=
 }
 ```
 
+### Work Item Relationship Examples
+
+```javascript
+// Add parent-child relationship
+{
+  "tool": "add_work_item_relation",
+  "arguments": {
+    "id": 123,  // Child work item
+    "relation_type": "Parent",
+    "target_id": 100  // Parent work item
+  }
+}
+
+// Add multiple children to a parent
+{
+  "tool": "add_work_item_relation",
+  "arguments": {
+    "id": 100,  // Parent work item
+    "relation_type": "Child",
+    "target_id": [123, 124, 125]  // Multiple children
+  }
+}
+
+// Create dependency relationship
+{
+  "tool": "add_work_item_relation",
+  "arguments": {
+    "id": 200,
+    "relation_type": "Predecessor",
+    "target_id": 199  // Task 200 depends on task 199
+  }
+}
+
+// Mark as duplicate
+{
+  "tool": "add_work_item_relation",
+  "arguments": {
+    "id": 301,
+    "relation_type": "Duplicate",
+    "target_id": 300
+  }
+}
+
+// Add related items
+{
+  "tool": "add_work_item_relation",
+  "arguments": {
+    "id": 400,
+    "relation_type": "Related",
+    "target_id": 401
+  }
+}
+
+// Get all relationships for a work item
+{
+  "tool": "get_work_item_relations",
+  "arguments": {
+    "id": 100
+  }
+}
+
+// Remove a relationship
+{
+  "tool": "remove_work_item_relation",
+  "arguments": {
+    "id": 100,
+    "relation_type": "Child",
+    "target_id": 123
+  }
+}
+
+// List all available relation types
+{
+  "tool": "list_relation_types",
+  "arguments": {}
+}
+```
+
+### Iteration/Sprint Examples
+
+```javascript
+// List all iterations in a project
+{
+  "tool": "list_iterations",
+  "arguments": {
+    "project": "MyProject"
+  }
+}
+
+// Get current sprint
+{
+  "tool": "get_current_iteration",
+  "arguments": {
+    "project": "MyProject"
+  }
+}
+
+// Move work item to different sprint
+{
+  "tool": "move_to_iteration",
+  "arguments": {
+    "id": 123,
+    "iteration": "Sprint 5",
+    "project": "MyProject"
+  }
+}
+
+// Get all work items in a sprint
+{
+  "tool": "get_iteration_work_items",
+  "arguments": {
+    "project": "MyProject",
+    "iteration": "Sprint 4"
+  }
+}
+```
+
 ## Troubleshooting
 
 ### Common Issues and Solutions
