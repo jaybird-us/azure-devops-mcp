@@ -6,7 +6,7 @@
 
 A Model Context Protocol (MCP) server that enables Claude to interact with Azure DevOps work items, projects, and boards directly through natural language.
 
-**Version 2.1.0** - Now with 26 working tools (query management tools removed for reliability)
+**Version 2.2.0** - Now with 30 tools including work item relationship management
 
 ## 🎯 Features
 
@@ -33,6 +33,14 @@ A Model Context Protocol (MCP) server that enables Claude to interact with Azure
   - View items organized by state
   - Include recently completed items
   - Use smart query shortcuts (`my-items`, `my-bugs`, `my-tasks`, `recent`)
+
+- **Work Item Relationships** 🆕
+  - Add relationships between work items (Parent/Child, Related, Dependencies)
+  - Remove relationships between work items
+  - View all relationships for a work item
+  - List available relationship types
+  - Build work item hierarchies (Epic → Feature → Story → Task)
+  - Track dependencies and mark duplicates
 
 ## 📋 Prerequisites
 
@@ -146,13 +154,14 @@ You must configure your Azure DevOps organization in one of two ways:
 az devops configure --defaults organization=https://dev.azure.com/YOUR_ORG
 ```
 
-## 🛠️ Available Tools (26 Total)
+## 🛠️ Available Tools (30 Total)
 
 **Categories:**
 - **Work Items** (6 tools): Query, create, update, comment on work items
 - **Discovery** (9 tools): Explore fields, types, states, and relationships
 - **Projects** (6 tools): Manage projects, teams, repos, and pipelines
 - **Iterations** (5 tools): Handle sprints and iteration planning
+- **Relations** (4 tools): Manage work item relationships and hierarchies
 
 > **Note:** Query management tools have been removed in v2.1.0 for improved reliability
 
@@ -252,10 +261,41 @@ Get detailed information about an iteration including work items grouped by type
 - `project` (required): Project name
 - `iteration` (required): Iteration name
 
+### Work Item Relationship Tools 🆕
+
+### `add_work_item_relation`
+Add a relationship between work items.
+
+**Parameters:**
+- `id` (required): Source work item ID
+- `relation_type` (required): Relationship type (e.g., "Parent", "Child", "Related", "Predecessor", "Successor", "Duplicate")
+- `target_id` (optional): Target work item ID(s) - can be single ID or array
+- `target_url` (optional): URL to target work item (alternative to target_id)
+
+### `remove_work_item_relation`
+Remove a relationship between work items.
+
+**Parameters:**
+- `id` (required): Source work item ID
+- `relation_type` (required): Relationship type to remove
+- `target_id` (required): Target work item ID(s) to unlink
+
+### `get_work_item_relations`
+Show all relationships for a work item with friendly categorization.
+
+**Parameters:**
+- `id` (required): Work item ID
+
+### `list_relation_types`
+List all available work item relation types in Azure DevOps.
+
+**Parameters:** None
+
 ## 💬 Usage Examples
 
 Once configured, you can ask Claude:
 
+**Work Item Management:**
 - "List all my Azure DevOps projects"
 - "Show me my active work items"
 - "Create a new bug titled 'Login page error' in the WebApp project"
@@ -263,11 +303,22 @@ Once configured, you can ask Claude:
 - "Update task 281 to Completed state"
 - "What bugs are assigned to me?"
 - "Show me work items that changed this week"
+
+**Sprint Management:**
 - "List all sprints in the WebApp project"
 - "What's in our current sprint?"
 - "Move task 123 to the next sprint"
 - "Show me all work items in Sprint 5"
 - "Get details about Sprint 3"
+
+**Relationship Management:**
+- "Add work item 456 as a parent of task 123"
+- "Show all relationships for work item 789"
+- "Mark work item 101 as a duplicate of 102"
+- "Add task 234 as a predecessor to task 567"
+- "Remove the relationship between items 333 and 444"
+- "What work items are related to epic 100?"
+- "List all available relationship types"
 
 ## 🔧 Development
 

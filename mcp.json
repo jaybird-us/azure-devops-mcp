@@ -1,8 +1,8 @@
 {
   "name": "azure-devops-mcp",
   "title": "Azure DevOps MCP Server",
-  "description": "Seamlessly interact with Azure DevOps work items, projects, and boards through Claude. Create, update, and query work items using natural language.",
-  "version": "2.1.0",
+  "description": "Seamlessly interact with Azure DevOps work items, projects, iterations, and relationships through Claude. Create, update, query, and manage work item hierarchies using natural language.",
+  "version": "2.2.0",
   "author": {
     "name": "Jeremy Paxton",
     "email": "jeremy.paxton@jybrd.io",
@@ -61,6 +61,9 @@
     "Add comments and track discussions",
     "Smart query shortcuts for personal productivity",
     "Support for all work item types (Tasks, Bugs, User Stories, Features, Epics)",
+    "Sprint and iteration management",
+    "Work item relationship management (Parent/Child, Dependencies, Related)",
+    "Build complex work item hierarchies",
     "Automatic organization configuration"
   ],
   "tools": [
@@ -86,6 +89,71 @@
           "description": "Limit results to specific project"
         }
       ]
+    },
+    {
+      "name": "add_work_item_relation",
+      "description": "Add relationships between work items (Parent/Child, Related, Dependencies)",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "number",
+          "required": true,
+          "description": "Source work item ID"
+        },
+        {
+          "name": "relation_type",
+          "type": "string",
+          "required": true,
+          "description": "Relationship type (Parent, Child, Related, Predecessor, Successor, Duplicate)"
+        },
+        {
+          "name": "target_id",
+          "type": "number or array",
+          "required": false,
+          "description": "Target work item ID(s)"
+        }
+      ]
+    },
+    {
+      "name": "remove_work_item_relation",
+      "description": "Remove relationships between work items",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "number",
+          "required": true,
+          "description": "Source work item ID"
+        },
+        {
+          "name": "relation_type",
+          "type": "string",
+          "required": true,
+          "description": "Relationship type to remove"
+        },
+        {
+          "name": "target_id",
+          "type": "number or array",
+          "required": true,
+          "description": "Target work item ID(s) to unlink"
+        }
+      ]
+    },
+    {
+      "name": "get_work_item_relations",
+      "description": "Show all relationships for a work item with friendly categorization",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "number",
+          "required": true,
+          "description": "Work item ID"
+        }
+      ]
+    },
+    {
+      "name": "list_relation_types",
+      "description": "List all available work item relation types in Azure DevOps",
+      "parameters": []
     },
     {
       "name": "get_work_item",
