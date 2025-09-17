@@ -1,55 +1,140 @@
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 import { ensureOrgConfigured } from '../helpers/ensureOrg.js';
+import { azureDevOpsInvoke } from '../helpers/azureDevOpsInvoke.js';
+import { fieldResolver } from '../helpers/fieldResolver.js';
 import { HandlerResult } from '../types.js';
 
 const execAsync = promisify(exec);
 
 export async function handleDiscoverFields(args: any): Promise<HandlerResult> {
     await ensureOrgConfigured();
-    const command = `az boards work-item field list --output json`;
-    const { stdout } = await execAsync(command);
-    const fields = JSON.parse(stdout);
-
-    // Group fields by category for easier reading
-    const grouped = {
-        system_fields: [] as any[],
-        microsoft_vsts: [] as any[],
-        custom_fields: [] as any[],
-        other_fields: [] as any[]
-    };
-
-    fields.forEach((field: any) => {
-        const fieldInfo = {
-            referenceName: field.referenceName,
-            name: field.name,
-            type: field.type,
-            readOnly: field.readOnly,
-            supportedOperations: field.supportedOperations
+    
+    try {
+        // Support filtering options
+        const category = args.category?.toLowerCase(); // 'system', 'vsts', 'custom', 'other'
+        const search = args.search?.toLowerCase();
+        const verbose = args.verbose === true;
+        const limit = args.limit || 50; // Default to showing only 50 fields unless specified
+        
+        // Use REST API to get fields
+        const apiResponse = await azureDevOpsInvoke({
+            area: 'wit',
+            resource: 'fields',
+            httpMethod: 'GET'
+        });
+        
+        const allFields = apiResponse.value || apiResponse || [];
+        
+        // Group fields by category
+        const grouped: Record<string, any[]> = {
+            system: [],
+            vsts: [],
+            custom: [],
+            other: []
         };
 
-        if (field.referenceName.startsWith('System.')) {
-            grouped.system_fields.push(fieldInfo);
-        } else if (field.referenceName.startsWith('Microsoft.VSTS.')) {
-            grouped.microsoft_vsts.push(fieldInfo);
-        } else if (field.referenceName.startsWith('Custom.')) {
-            grouped.custom_fields.push(fieldInfo);
-        } else {
-            grouped.other_fields.push(fieldInfo);
-        }
-    });
+        let processedCount = 0;
+        allFields.forEach((field: any) => {
+            // Apply search filter
+            if (search && 
+                !field.name?.toLowerCase().includes(search) && 
+                !field.referenceName?.toLowerCase().includes(search)) {
+                return;
+            }
 
-    return {
-        content: [{
-            type: 'text',
-            text: JSON.stringify(grouped, null, 2),
-        }],
-    };
+            // Create compact field info (no supportedOperations unless verbose)
+            const fieldInfo = verbose ? {
+                ref: field.referenceName,
+                name: field.name,
+                type: field.type,
+                readOnly: field.readOnly,
+                ops: field.supportedOperations // Include operations only if verbose
+            } : {
+                ref: field.referenceName,
+                name: field.name,
+                type: field.type
+            };
+
+            // Categorize the field
+            let targetCategory = '';
+            if (field.referenceName.startsWith('System.')) {
+                targetCategory = 'system';
+            } else if (field.referenceName.startsWith('Microsoft.VSTS.')) {
+                targetCategory = 'vsts';
+            } else if (field.referenceName.startsWith('Custom.')) {
+                targetCategory = 'custom';
+            } else {
+                targetCategory = 'other';
+            }
+
+            // Apply category filter and add to appropriate group
+            if (!category || category === targetCategory) {
+                if (processedCount < limit || category || search) {
+                    grouped[targetCategory].push(fieldInfo);
+                    processedCount++;
+                }
+            }
+        });
+
+        // Build compact summary
+        const summary = {
+            total: allFields.length,
+            shown: processedCount,
+            by_category: {
+                system: grouped.system.length,
+                vsts: grouped.vsts.length,
+                custom: grouped.custom.length,
+                other: grouped.other.length
+            }
+        };
+
+        // Build result with only non-empty categories
+        const finalResult: any = {
+            summary,
+            filters: {
+                category: category || 'all',
+                search: search || 'none',
+                limit: processedCount < allFields.length ? limit : 'all',
+                verbose: verbose
+            }
+        };
+
+        // Add fields by category (only non-empty)
+        if (grouped.system.length > 0) finalResult.system = grouped.system;
+        if (grouped.vsts.length > 0) finalResult.vsts = grouped.vsts;
+        if (grouped.custom.length > 0) finalResult.custom = grouped.custom;
+        if (grouped.other.length > 0) finalResult.other = grouped.other;
+
+        // Add helpful hints if output was limited
+        if (processedCount < allFields.length && !category && !search) {
+            finalResult.hint = `Showing first ${limit} fields. Use parameters: category (system/vsts/custom/other), search, limit, verbose`;
+        }
+
+        return {
+            content: [{
+                type: 'text',
+                text: JSON.stringify(finalResult, null, 2),
+            }],
+        };
+    } catch (error: any) {
+        return {
+            content: [{
+                type: 'text',
+                text: JSON.stringify({
+                    error: 'Failed to discover fields',
+                    message: error.message,
+                    hint: 'Make sure you have access to the Azure DevOps organization'
+                }, null, 2),
+            }],
+            isError: true
+        };
+    }
 }
 
 export async function handleInspectWorkItem(args: any): Promise<HandlerResult> {
     await ensureOrgConfigured();
-    // Get the complete raw work item without any filtering
+    // This one still works with Azure CLI
     const command = `az boards work-item show --id ${args.id} --output json`;
     const { stdout } = await execAsync(command);
     const workItem = JSON.parse(stdout);
@@ -106,83 +191,253 @@ export async function handleTestQuery(args: any): Promise<HandlerResult> {
 
 export async function handleDiscoverWorkItemTypes(args: any): Promise<HandlerResult> {
     await ensureOrgConfigured();
-    let command = `az boards work-item type list`;
-    if (args.project) command += ` --project "${args.project}"`;
-    command += ' --output json';
+    
+    try {
+        // Use REST API to get work item types
+        const params: any = {
+            area: 'wit',
+            resource: 'workitemtypes',
+            httpMethod: 'GET'
+        };
+        
+        if (args.project) {
+            params.routeParameters = { project: args.project };
+        }
+        
+        const result = await azureDevOpsInvoke(params);
+        const types = result.value || result || [];
+        
+        // Format the response with field summary instead of listing all fields
+        const formattedTypes = types.map((type: any) => {
+            let fieldInfo = {};
+            
+            if (args.include_fields === true) {
+                // If explicitly requested, include only required and commonly used fields
+                const importantFields = ['System.Title', 'System.State', 'System.AssignedTo', 
+                                         'System.Description', 'System.Priority', 'System.Tags'];
+                
+                fieldInfo = {
+                    requiredFields: type.fields?.filter((f: any) => f.alwaysRequired)
+                        .map((f: any) => ({
+                            referenceName: f.referenceName,
+                            name: f.name
+                        }))
+                        .slice(0, 10), // Limit to 10 required fields
+                    commonFields: type.fields?.filter((f: any) => 
+                        importantFields.includes(f.referenceName))
+                        .map((f: any) => ({
+                            referenceName: f.referenceName,
+                            name: f.name
+                        }))
+                };
+            } else {
+                // Default: just provide field statistics
+                fieldInfo = {
+                    fieldCount: type.fields?.length || 0,
+                    requiredFieldCount: type.fields?.filter((f: any) => f.alwaysRequired).length || 0,
+                    hint: "Use include_fields parameter to see field details"
+                };
+            }
+            
+            return {
+                name: type.name,
+                referenceName: type.referenceName,
+                description: type.description,
+                color: type.color,
+                icon: type.icon,
+                isDisabled: type.isDisabled,
+                ...fieldInfo
+            };
+        });
+        
+        // Add a summary at the top
+        const summary = {
+            totalTypes: formattedTypes.length,
+            types: formattedTypes,
+            note: "Use include_fields=true parameter to see field details for each type"
+        };
 
-    const { stdout } = await execAsync(command);
-    const types = JSON.parse(stdout);
-
-    // For each type, get more details if possible
-    const result = types.map((type: any) => ({
-        name: type.name,
-        referenceName: type.referenceName,
-        description: type.description,
-        color: type.color,
-        icon: type.icon,
-        isDisabled: type.isDisabled,
-        fields: type.fields?.map((f: any) => ({
-            referenceName: f.referenceName,
-            name: f.name,
-            required: f.alwaysRequired
-        }))
-    }));
-
-    return {
-        content: [{
-            type: 'text',
-            text: JSON.stringify(result, null, 2),
-        }],
-    };
+        return {
+            content: [{
+                type: 'text',
+                text: JSON.stringify(summary, null, 2),
+            }],
+        };
+    } catch (error: any) {
+        return {
+            content: [{
+                type: 'text',
+                text: JSON.stringify({
+                    error: 'Failed to discover work item types',
+                    message: error.message,
+                    hint: 'Specify a project if needed: --project "ProjectName"'
+                }, null, 2),
+            }],
+            isError: true
+        };
+    }
 }
 
 export async function handleDiscoverStates(args: any): Promise<HandlerResult> {
     await ensureOrgConfigured();
-    // Try to get states for a work item type
-    let command = `az boards work-item type show --work-item-type "${args.work_item_type}"`;
-    if (args.project) command += ` --project "${args.project}"`;
-    command += ' --output json';
-
+    
     try {
-        const { stdout } = await execAsync(command);
-        const typeInfo = JSON.parse(stdout);
+        // First, we need a project context to get states
+        // If no project is provided, try to get the default or first project
+        let project = args.project;
+        if (!project) {
+            // Try to get default project
+            try {
+                const { stdout: configOut } = await execAsync('az devops configure --list --output json');
+                const config = JSON.parse(configOut);
+                project = config.defaults?.project;
+            } catch {
+                // No default project
+            }
+            
+            // If still no project, list projects and use the first one
+            if (!project) {
+                try {
+                    const projectList = await azureDevOpsInvoke({
+                        area: 'core',
+                        resource: 'projects',
+                        httpMethod: 'GET'
+                    });
+                    const projects = projectList.value || projectList || [];
+                    if (projects.length > 0) {
+                        project = projects[0].name;
+                    }
+                } catch {
+                    // Couldn't get projects
+                }
+            }
+        }
+        
+        if (!project) {
+            return {
+                content: [{
+                    type: 'text',
+                    text: JSON.stringify({
+                        error: 'Project context required',
+                        message: 'Please provide a project parameter to get states for the work item type',
+                        hint: 'Example: --project "Quality Carbide"'
+                    }, null, 2),
+                }],
+            };
+        }
+        
+        // Use az devops invoke directly with the proper resource path
+        // The resource for states should include the work item type in the path
+        const command = `az devops invoke --area wit --resource "workitemtypes/${args.work_item_type}/states" --route-parameters project="${project}" --http-method GET --api-version 7.1 --output json`;
+        
+        try {
+            const { stdout } = await execAsync(command);
+            const result = JSON.parse(stdout);
+            const states = result.value || result || [];
+            
+            if (Array.isArray(states) && states.length > 0) {
+                return {
+                    content: [{
+                        type: 'text',
+                        text: JSON.stringify({
+                            type: args.work_item_type,
+                            project: project,
+                            states: states.map((s: any) => ({
+                                name: s.name,
+                                color: s.color,
+                                category: s.category
+                            })),
+                            count: states.length
+                        }, null, 2),
+                    }],
+                };
+            }
+            
+            // If no states returned, try alternative approach
+            throw new Error('No states returned from API');
+            
+        } catch (apiError: any) {
+            // If the direct API call fails, try to get the work item type info
+            try {
+                const typeCommand = `az devops invoke --area wit --resource workitemtypes --route-parameters project="${project}" --http-method GET --api-version 7.1 --output json`;
+                const { stdout: typeOut } = await execAsync(typeCommand);
+                const typeResult = JSON.parse(typeOut);
+                const types = typeResult.value || typeResult || [];
+                
+                // Find the requested type
+                const typeInfo = types.find((t: any) => 
+                    t.name === args.work_item_type || 
+                    t.referenceName === args.work_item_type
+                );
+                
+                if (typeInfo && typeInfo.states) {
+                    return {
+                        content: [{
+                            type: 'text',
+                            text: JSON.stringify({
+                                type: args.work_item_type,
+                                project: project,
+                                states: typeInfo.states.map((s: any) => ({
+                                    name: s.name,
+                                    color: s.color,
+                                    category: s.category
+                                })),
+                                transitions: typeInfo.transitions || [],
+                                note: 'States retrieved from work item type definition'
+                            }, null, 2),
+                        }],
+                    };
+                }
+            } catch {
+                // This approach also failed
+            }
+            
+            // Final fallback: discover from existing items
+            const query = `SELECT [System.State] FROM workitems WHERE [System.WorkItemType] = '${args.work_item_type}' AND [System.TeamProject] = '${project}'`;
+            const { stdout: queryOut } = await execAsync(`az boards query --wiql "${query}" --output json`);
+            const items = JSON.parse(queryOut);
 
-        // Extract states from the type definition
-        const result = {
-            type: args.work_item_type,
-            states: typeInfo.states?.map((s: any) => ({
-                name: s.name,
-                color: s.color,
-                category: s.category
-            })),
-            transitions: typeInfo.transitions,
-            raw: typeInfo
-        };
-
+            // Get unique states from actual work items
+            const statesSet = new Set(items.map((item: any) => item.fields?.['System.State']).filter(Boolean));
+            
+            if (statesSet.size > 0) {
+                return {
+                    content: [{
+                        type: 'text',
+                        text: JSON.stringify({
+                            type: args.work_item_type,
+                            project: project,
+                            discovered_states: Array.from(statesSet),
+                            note: 'States discovered from existing work items in the project'
+                        }, null, 2),
+                    }],
+                };
+            } else {
+                // No work items found, return common states
+                return {
+                    content: [{
+                        type: 'text',
+                        text: JSON.stringify({
+                            type: args.work_item_type,
+                            project: project,
+                            common_states: ['New', 'Active', 'Resolved', 'Closed'],
+                            message: 'No work items of this type found. These are common states used in most processes.'
+                        }, null, 2),
+                    }],
+                };
+            }
+        }
+    } catch (error: any) {
+        // If all else fails, provide common states
         return {
             content: [{
                 type: 'text',
-                text: JSON.stringify(result, null, 2),
-            }],
-        };
-    } catch (error) {
-        // If the above doesn't work, we can try to infer from existing items
-        const query = `SELECT [System.State] FROM workitems WHERE [System.WorkItemType] = '${args.work_item_type}'`;
-        const { stdout: queryOut } = await execAsync(`az boards query --wiql "${query}" --output json`);
-        const items = JSON.parse(queryOut);
-
-        // Get unique states from actual work items
-        const states = new Set(items.map((item: any) => item.fields?.['System.State']));
-        const result = {
-            type: args.work_item_type,
-            discovered_states: Array.from(states),
-            note: 'States discovered from existing work items'
-        };
-
-        return {
-            content: [{
-                type: 'text',
-                text: JSON.stringify(result, null, 2),
+                text: JSON.stringify({
+                    type: args.work_item_type,
+                    common_states: ['New', 'Active', 'Resolved', 'Closed'],
+                    message: 'Could not discover specific states. These are common states used in most processes.',
+                    error: error.message
+                }, null, 2),
             }],
         };
     }
@@ -190,18 +445,37 @@ export async function handleDiscoverStates(args: any): Promise<HandlerResult> {
 
 export async function handleDiscoverRelationships(args: any): Promise<HandlerResult> {
     await ensureOrgConfigured();
-    // Get a sample work item with relations to understand link types
-    const query = `SELECT TOP 1 [System.Id] FROM workitems WHERE [System.Links.LinkCount] > 0`;
+    // Look for work items that are likely to have relations (Epics, Features, or recently modified items)
+    const query = `SELECT [System.Id] FROM workitems WHERE [System.WorkItemType] IN ('Epic', 'Feature', 'User Story', 'Task') ORDER BY [System.ChangedDate] DESC`;
     const command = `az boards query --wiql "${query}" --output json`;
 
     try {
         const { stdout: queryOut } = await execAsync(command);
-        const items = JSON.parse(queryOut);
+        const allItems = JSON.parse(queryOut);
+        // Limit to first 10 items to avoid too many API calls
+        const items = allItems.slice(0, 10);
 
-        if (items.length > 0) {
-            const sampleId = items[0].id;
-            const { stdout: itemOut } = await execAsync(`az boards work-item relation show --id ${sampleId} --output json`);
-            const relations = JSON.parse(itemOut);
+        // Try to find a work item with relations
+        let relations = null;
+        let sampleId = null;
+        
+        for (const item of items) {
+            try {
+                const { stdout: itemOut } = await execAsync(`az boards work-item relation show --id ${item.id} --output json`);
+                const itemRelations = JSON.parse(itemOut);
+                
+                if (itemRelations.relations && itemRelations.relations.length > 0) {
+                    relations = itemRelations;
+                    sampleId = item.id;
+                    break;
+                }
+            } catch {
+                // Skip items that fail
+                continue;
+            }
+        }
+        
+        if (relations) {
 
             // Extract unique relation types
             const relationTypes = new Set(relations.relations?.map((r: any) => r.rel));
@@ -247,38 +521,77 @@ export async function handleDiscoverRelationships(args: any): Promise<HandlerRes
     }
 }
 
-// NEW: Check if a field exists
 export async function handleCheckFieldExists(args: any): Promise<HandlerResult> {
     await ensureOrgConfigured();
+    
     try {
-        const command = `az boards work-item field show --field "${args.field_name}" --output json`;
-        const { stdout } = await execAsync(command);
-        const field = JSON.parse(stdout);
-
+        // Use the field resolver which already has all fields cached
+        const exists = await fieldResolver.fieldExists(args.field_name);
+        
+        if (exists) {
+            // Try to get field details via REST API
+            try {
+                const result = await azureDevOpsInvoke({
+                    area: 'wit',
+                    resource: 'fields',
+                    routeParameters: { field: args.field_name },
+                    httpMethod: 'GET'
+                });
+                
+                // Return only essential information, not the entire field object
+                return {
+                    content: [{
+                        type: 'text',
+                        text: JSON.stringify({
+                            exists: true,
+                            field_name: args.field_name,
+                            name: result.name,
+                            type: result.type,
+                            readOnly: result.readOnly || false,
+                            isIdentity: result.isIdentity || false
+                        }, null, 2),
+                    }],
+                };
+            } catch {
+                // Field exists but couldn't get details
+                return {
+                    content: [{
+                        type: 'text',
+                        text: JSON.stringify({
+                            exists: true,
+                            field_name: args.field_name,
+                            message: 'Field exists in the system'
+                        }, null, 2),
+                    }],
+                };
+            }
+        } else {
+            return {
+                content: [{
+                    type: 'text',
+                    text: JSON.stringify({
+                        exists: false,
+                        field_name: args.field_name,
+                        message: 'Field does not exist in this Azure DevOps instance'
+                    }, null, 2),
+                }],
+            };
+        }
+    } catch (error: any) {
         return {
             content: [{
                 type: 'text',
                 text: JSON.stringify({
-                    exists: true,
-                    field: field
-                }, null, 2),
-            }],
-        };
-    } catch {
-        return {
-            content: [{
-                type: 'text',
-                text: JSON.stringify({
-                    exists: false,
+                    error: 'Failed to check field existence',
                     field_name: args.field_name,
-                    message: 'Field does not exist in this Azure DevOps instance'
+                    message: error.message
                 }, null, 2),
             }],
+            isError: true
         };
     }
 }
 
-// NEW: Get default project configuration
 export async function handleGetDefaultProject(args: any): Promise<HandlerResult> {
     await ensureOrgConfigured();
     try {
@@ -308,7 +621,6 @@ export async function handleGetDefaultProject(args: any): Promise<HandlerResult>
     }
 }
 
-// NEW: Health check for Azure DevOps connection
 export async function handleHealthcheck(args: any): Promise<HandlerResult> {
     await ensureOrgConfigured();
     const checks = {
@@ -317,7 +629,8 @@ export async function handleHealthcheck(args: any): Promise<HandlerResult> {
         devops_extension: false,
         default_org: false,
         default_project: false,
-        can_query: false
+        can_query: false,
+        rest_api_access: false
     };
 
     try {
@@ -360,6 +673,19 @@ export async function handleHealthcheck(args: any): Promise<HandlerResult> {
         checks.can_query = true;
     } catch {
         // Can't query
+    }
+    
+    try {
+        // Check REST API access
+        await azureDevOpsInvoke({
+            area: 'wit',
+            resource: 'fields',
+            httpMethod: 'GET',
+            queryParameters: { '$top': '1' }
+        });
+        checks.rest_api_access = true;
+    } catch {
+        // Can't access REST API
     }
 
     return {

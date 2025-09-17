@@ -2,7 +2,7 @@
   "name": "azure-devops-mcp",
   "title": "Azure DevOps MCP Server",
   "description": "Seamlessly interact with Azure DevOps work items, projects, and boards through Claude. Create, update, and query work items using natural language.",
-  "version": "1.0.0",
+  "version": "2.1.0",
   "author": {
     "name": "Jeremy Paxton",
     "email": "jeremy.paxton@jybrd.io",
@@ -35,7 +35,7 @@
   },
   "installation": {
     "npm": {
-      "package": "azure-devops-mcp",
+      "package": "@jybrd/azure-devops-mcp",
       "global": true
     },
     "manual": {
@@ -46,7 +46,7 @@
   "configuration": {
     "claude_desktop": {
       "command": "npx",
-      "args": ["azure-devops-mcp"]
+      "args": ["@jybrd/azure-devops-mcp"]
     },
     "environment": {
       "optional": {

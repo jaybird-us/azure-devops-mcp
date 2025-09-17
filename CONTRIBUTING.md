@@ -119,32 +119,59 @@ Future goal: Add comprehensive test suite.
 
 When adding a new tool:
 
-1. Define the tool in the `ListToolsRequestSchema` handler
-2. Implement the handler in the `CallToolRequestSchema` switch
-3. Update the README with tool documentation
-4. Update mcp.json with tool metadata
-5. Test with various parameter combinations
+1. **Define the tool** in the appropriate file under `src/tools/`:
+   - `workitems.ts` for work item operations
+   - `discovery.ts` for field/type discovery tools
+   - `projects.ts` for project management tools
+   - `iterations.ts` for sprint/iteration tools
+
+2. **Implement the handler** in the corresponding handler file under `src/handlers/`
+
+3. **Add the case** in `src/index.ts` CallToolRequestSchema switch
+
+4. **Update the tool count** in index.ts console message
+
+5. **Update documentation**:
+   - README.md with tool description
+   - mcp.json with tool metadata
+   - CHANGELOG.md with the addition
+
+6. **Test with various parameter combinations**
 
 Example structure:
 ```typescript
-// In ListToolsRequestSchema handler
-{
-  name: 'your_new_tool',
-  description: 'Clear description of what it does',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      // Define parameters
+// In src/tools/workitems.ts (or appropriate tool file)
+export const workItemTools: ToolDefinition[] = [
+  // ... existing tools
+  {
+    name: 'your_new_tool',
+    description: 'Clear description of what it does',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        // Define parameters
+      },
+      required: ['required_params'],
     },
-    required: ['required_params'],
   },
+];
+
+// In src/handlers/workitems.ts (or appropriate handler file)
+export async function handleYourNewTool(args: any): Promise<HandlerResult> {
+  await ensureOrgConfigured();
+  // Implementation
+  return {
+    content: [{
+      type: 'text',
+      text: JSON.stringify(result, null, 2),
+    }],
+  };
 }
 
-// In CallToolRequestSchema handler
-case 'your_new_tool': {
-  // Implementation
+// In src/index.ts CallToolRequestSchema handler
+case 'your_new_tool':
+  result = await workItemHandlers.handleYourNewTool(args);
   break;
-}
 ```
 
 ## Project Structure
@@ -152,9 +179,28 @@ case 'your_new_tool': {
 ```
 azure-devops-mcp/
 ├── src/
-│   └── index.ts         # Main server implementation
-├── dist/
-│   └── index.js         # Compiled output (generated)
+│   ├── index.ts         # Main server implementation
+│   ├── types.ts         # TypeScript type definitions
+│   ├── tools/           # Tool definitions
+│   │   ├── index.ts     # Combined tool exports
+│   │   ├── workitems.ts # Work item tool definitions
+│   │   ├── discovery.ts # Discovery tool definitions
+│   │   ├── projects.ts  # Project tool definitions
+│   │   └── iterations.ts# Iteration tool definitions
+│   ├── handlers/        # Tool implementation handlers
+│   │   ├── workitems.ts # Work item handlers
+│   │   ├── discovery.ts # Discovery handlers
+│   │   ├── projects.ts  # Project handlers
+│   │   └── iterations.ts# Iteration handlers
+│   ├── helpers/         # Utility functions
+│   │   ├── ensureOrg.ts # Organization configuration
+│   │   ├── queryBuilder.ts # WIQL query builder
+│   │   ├── fieldResolver.ts # Field resolution
+│   │   └── azureDevOpsInvoke.ts # REST API wrapper
+│   └── types/           # Additional type definitions
+│       └── iterations.ts # Iteration types
+├── dist/                # Compiled output (generated)
+│   └── index.js
 ├── package.json         # Dependencies and scripts
 ├── tsconfig.json        # TypeScript configuration
 ├── README.md            # User documentation
@@ -166,7 +212,7 @@ azure-devops-mcp/
 
 ## Questions?
 
-Feel free to [open an issue](https://github.com/yourusername/azure-devops-mcp/issues) for questions or discussions.
+Feel free to [open an issue](https://github.com/jaybird-us/azure-devops-mcp/issues) for questions or discussions.
 
 ## Recognition
 

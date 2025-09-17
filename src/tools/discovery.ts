@@ -3,24 +3,40 @@ import { ToolDefinition } from '../types.js';
 export const discoveryTools: ToolDefinition[] = [
     {
         name: 'discover_fields',
-        description: 'Discover all available fields in the Azure DevOps instance',
+        description: 'Discover available fields in Azure DevOps (compact output with filtering)',
         inputSchema: {
             type: 'object',
             properties: {
-                work_item_type: {
+                category: {
                     type: 'string',
-                    description: 'Optional: Filter fields for specific work item type (Task, Bug, etc.)'
+                    description: 'Filter by category: system, vsts, custom, or other'
                 },
+                search: {
+                    type: 'string',
+                    description: 'Search for fields by name or reference'
+                },
+                limit: {
+                    type: 'number',
+                    description: 'Maximum number of fields to return (default: 50)'
+                },
+                verbose: {
+                    type: 'boolean',
+                    description: 'Include full details including operations (default: false)'
+                }
             },
         },
     },
     {
         name: 'discover_work_item_types',
-        description: 'List all work item types and their configurations',
+        description: 'List all work item types with compact field summaries',
         inputSchema: {
             type: 'object',
             properties: {
                 project: { type: 'string', description: 'Project name (optional)' },
+                include_fields: { 
+                    type: 'boolean', 
+                    description: 'Include field details for each type (default: false)' 
+                },
             },
         },
     },

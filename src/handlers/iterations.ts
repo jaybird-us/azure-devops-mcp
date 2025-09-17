@@ -32,7 +32,7 @@ function determineIterationState(iter: any, now: Date = new Date()): 'past' | 'c
 function formatIteration(iter: any): Iteration {
     const now = new Date();
     return {
-        id: iter.id,
+        id: iter.id || iter.identifier,
         name: iter.name,
         path: iter.path,
         startDate: iter.attributes?.startDate,
@@ -40,6 +40,28 @@ function formatIteration(iter: any): Iteration {
         state: determineIterationState(iter, now),
         attributes: iter.attributes
     };
+}
+
+/**
+ * Flatten hierarchical iteration structure
+ */
+function flattenIterations(node: any, result: any[] = []): any[] {
+    if (!node) return result;
+    
+    // Add the current node
+    result.push(node);
+    
+    // Process children
+    if (node.children && Array.isArray(node.children)) {
+        node.children.forEach((child: any) => {
+            flattenIterations(child, result);
+        });
+    } else if (node.hasChildren && !node.children) {
+        // Node has children but they weren't fetched (depth limitation)
+        // We can't process them without another API call
+    }
+    
+    return result;
 }
 
 /**
@@ -51,24 +73,61 @@ export async function listIterations(args: ListIterationsArgs): Promise<Iteratio
     
     if (args.depth) {
         command += ` --depth ${args.depth}`;
+    } else {
+        // Default to depth 5 to get a reasonable tree
+        command += ` --depth 5`;
     }
     
     command += ' --output json';
     
-    const { stdout } = await execAsync(command);
-    const response = JSON.parse(stdout);
-    
-    // Handle both direct array and object with value property
-    const iterations = Array.isArray(response) ? response : (response.value || []);
-    
-    return iterations
-        .map(formatIteration)
-        .sort((a: Iteration, b: Iteration) => {
-            // Sort by start date, with nulls last
-            if (!a.startDate) return 1;
-            if (!b.startDate) return -1;
-            return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
-        });
+    try {
+        const { stdout } = await execAsync(command);
+        const response = JSON.parse(stdout);
+        
+        // The response is typically a single root node with children
+        let iterations: any[] = [];
+        
+        if (Array.isArray(response)) {
+            // If it's an array, flatten each root node
+            response.forEach(root => {
+                flattenIterations(root, iterations);
+            });
+        } else if (response && typeof response === 'object') {
+            // Single root node with hierarchical structure
+            if (response.children) {
+                // Just get the children, skip the root project node
+                response.children.forEach((child: any) => {
+                    flattenIterations(child, iterations);
+                });
+            } else if (response.value && Array.isArray(response.value)) {
+                // Alternative structure with value array
+                response.value.forEach((iter: any) => {
+                    flattenIterations(iter, iterations);
+                });
+            } else {
+                // Single node without children
+                iterations = [response];
+            }
+        }
+        
+        // Filter out the root project node if it exists (it has the same name as project)
+        iterations = iterations.filter(iter => 
+            iter.path && !iter.path.endsWith(`\\${args.project}\\Iteration`) && iter.path !== `\\${args.project}\\Iteration`
+        );
+        
+        return iterations
+            .map(formatIteration)
+            .sort((a: Iteration, b: Iteration) => {
+                // Sort by start date, with nulls last
+                if (!a.startDate) return 1;
+                if (!b.startDate) return -1;
+                return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+            });
+    } catch (error: any) {
+        console.error('Error listing iterations:', error.message);
+        // Return empty array if no iterations exist
+        return [];
+    }
 }
 
 /**
@@ -97,30 +156,76 @@ export async function getCurrentIteration(args: GetCurrentIterationArgs): Promis
  */
 export async function getIterationWorkItems(args: GetIterationWorkItemsArgs): Promise<any[]> {
     await ensureOrgConfigured();
+    
+    // Handle different iteration path formats
+    let iterationPath: string;
+    
+    if (args.iteration.includes('\\')) {
+        // Full path provided - remove \Iteration\ if present
+        iterationPath = args.iteration.replace('\\Iteration\\', '\\');
+    } else if (args.iteration.toLowerCase() === 'root' || args.iteration === args.project) {
+        // Root iteration
+        iterationPath = args.project;
+    } else {
+        // Need to find the actual iteration path
+        // Get the iterations list to find the correct path
+        try {
+            const iterations = await listIterations({ project: args.project });
+            const matchingIteration = iterations.find(iter => 
+                iter.name === args.iteration || 
+                iter.path?.endsWith(`\\${args.iteration}`) ||
+                iter.path?.includes(`\\${args.iteration}\\`)
+            );
+            
+            if (matchingIteration && matchingIteration.path) {
+                // Remove \Iteration\ from path as work items don't use it
+                iterationPath = matchingIteration.path.replace('\\Iteration\\', '\\');
+            } else {
+                // Fallback - try direct path construction
+                // Check if it looks like a nested path
+                if (args.iteration.includes('\\')) {
+                    iterationPath = `${args.project}\\${args.iteration}`;
+                } else {
+                    // Try multiple common patterns
+                    // Could be Phase 1\\Subitem or direct child
+                    iterationPath = `${args.project}\\${args.iteration}`;
+                }
+            }
+        } catch (err) {
+            // If listing fails, fallback to direct construction
+            iterationPath = `${args.project}\\${args.iteration}`;
+        }
+    }
+    
     // Build WIQL query
     const query = `SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType], [System.AssignedTo] 
                    FROM workitems 
-                   WHERE [System.IterationPath] = '${args.project}\\${args.iteration}'
+                   WHERE [System.IterationPath] = '${iterationPath}' OR [System.IterationPath] UNDER '${iterationPath}'
                    ORDER BY [System.WorkItemType], [System.Id]`;
     
     const command = `az boards query --wiql "${query}" --project "${args.project}" --output json`;
     
-    const { stdout } = await execAsync(command);
-    const items = JSON.parse(stdout);
-    
-    // Format the results
-    if (Array.isArray(items)) {
-        return items.map((item) => ({
-            id: item.id,
-            type: item.fields?.['System.WorkItemType'],
-            title: item.fields?.['System.Title'],
-            state: item.fields?.['System.State'],
-            assignedTo: item.fields?.['System.AssignedTo']?.displayName,
-            iteration: item.fields?.['System.IterationPath']
-        }));
+    try {
+        const { stdout } = await execAsync(command);
+        const items = JSON.parse(stdout);
+        
+        // Format the results
+        if (Array.isArray(items)) {
+            return items.map((item) => ({
+                id: item.id,
+                type: item.fields?.['System.WorkItemType'],
+                title: item.fields?.['System.Title'],
+                state: item.fields?.['System.State'],
+                assignedTo: item.fields?.['System.AssignedTo']?.displayName,
+                iteration: item.fields?.['System.IterationPath']
+            }));
+        }
+        
+        return [];
+    } catch (error: any) {
+        console.error('Error getting iteration work items:', error.message);
+        return [];
     }
-    
-    return [];
 }
 
 /**
@@ -128,20 +233,56 @@ export async function getIterationWorkItems(args: GetIterationWorkItemsArgs): Pr
  */
 export async function moveToIteration(args: MoveToIterationArgs): Promise<any> {
     await ensureOrgConfigured();
-    // Build the iteration path
-    const iterationPath = args.project ? `${args.project}\\${args.iteration}` : args.iteration;
     
+    // Build the iteration path
+    let iterationPath: string;
+    
+    if (args.iteration.toLowerCase() === 'root' || args.iteration === args.project) {
+        // Moving to root iteration - just use project name
+        iterationPath = args.project || '';
+    } else if (args.iteration.includes('\\')) {
+        // Full path provided
+        iterationPath = args.iteration;
+    } else {
+        // Build path - check if project is provided
+        if (args.project) {
+            iterationPath = `${args.project}\\${args.iteration}`;
+        } else {
+            // Try with just the iteration name
+            iterationPath = args.iteration;
+        }
+    }
+    
+    // Use --iteration-path instead of --iteration
     const command = `az boards work-item update --id ${args.id} --iteration-path "${iterationPath}" --output json`;
     
-    const { stdout } = await execAsync(command);
-    const result = JSON.parse(stdout);
-    
-    return {
-        id: result.id,
-        title: result.fields?.['System.Title'],
-        iteration: result.fields?.['System.IterationPath'],
-        message: `Moved work item #${args.id} to iteration ${args.iteration}`
-    };
+    try {
+        const { stdout } = await execAsync(command);
+        const result = JSON.parse(stdout);
+        
+        return {
+            id: result.id,
+            title: result.fields?.['System.Title'],
+            iteration: result.fields?.['System.IterationPath'],
+            message: `Moved work item #${args.id} to iteration ${args.iteration}`
+        };
+    } catch (error: any) {
+        // Fallback to using --iteration if --iteration-path doesn't work
+        try {
+            const fallbackCommand = `az boards work-item update --id ${args.id} --iteration "${iterationPath}" --output json`;
+            const { stdout } = await execAsync(fallbackCommand);
+            const result = JSON.parse(stdout);
+            
+            return {
+                id: result.id,
+                title: result.fields?.['System.Title'],
+                iteration: result.fields?.['System.IterationPath'],
+                message: `Moved work item #${args.id} to iteration ${args.iteration}`
+            };
+        } catch (fallbackError: any) {
+            throw new Error(`Failed to move work item: ${error.message}`);
+        }
+    }
 }
 
 /**
@@ -149,73 +290,93 @@ export async function moveToIteration(args: MoveToIterationArgs): Promise<any> {
  */
 export async function getIterationDetails(args: GetIterationDetailsArgs): Promise<any> {
     await ensureOrgConfigured();
-    // Get the iteration details
-    const command = `az boards iteration project show --project "${args.project}" --name "${args.iteration}" --output json`;
     
-    const { stdout } = await execAsync(command);
-    const iteration = JSON.parse(stdout);
-    
-    // Get work items in this iteration
-    const workItems = await getIterationWorkItems({
-        project: args.project,
-        iteration: args.iteration
-    });
-    
-    // Group work items by type
-    const itemsByType: Record<string, any[]> = {};
-    const itemsByState: Record<string, any[]> = {};
-    
-    workItems.forEach(item => {
-        // Group by type
-        if (!itemsByType[item.type]) {
-            itemsByType[item.type] = [];
-        }
-        itemsByType[item.type].push(item);
-        
-        // Group by state
-        if (!itemsByState[item.state]) {
-            itemsByState[item.state] = [];
-        }
-        itemsByState[item.state].push(item);
-    });
-    
-    return {
-        ...formatIteration(iteration),
-        workItemCount: workItems.length,
-        workItemsByType: itemsByType,
-        workItemsByState: itemsByState,
-        workItems: workItems
-    };
-}
-
-/**
- * Get iteration capacity and team members
- */
-export async function getIterationCapacity(args: { project: string; iteration: string; team?: string }): Promise<any> {
-    await ensureOrgConfigured();
     try {
-        const command = `az boards iteration team list --project "${args.project}" ${args.team ? `--team "${args.team}"` : ''} --output json`;
+        // Get all iterations for the project
+        const iterations = await listIterations({ project: args.project, depth: 5 });
         
-        const { stdout } = await execAsync(command);
-        const iterations = JSON.parse(stdout);
+        // Find the specific iteration by name or path
+        const iteration = iterations.find((iter: Iteration) => 
+            iter.name === args.iteration || 
+            iter.path?.includes(`\\${args.iteration}`) ||
+            iter.path?.endsWith(args.iteration)
+        );
         
-        // Find the specific iteration
-        const iteration = iterations.find((i: any) => i.name === args.iteration || i.path.includes(args.iteration));
-        
-        if (iteration) {
+        if (!iteration) {
+            // Try to get work items anyway in case the iteration exists but wasn't in the list
+            const workItems = await getIterationWorkItems({
+                project: args.project,
+                iteration: args.iteration
+            });
+            
+            if (workItems.length > 0) {
+                // Iteration exists but wasn't in list, create a basic structure
+                const itemsByType: Record<string, any[]> = {};
+                const itemsByState: Record<string, any[]> = {};
+                
+                workItems.forEach(item => {
+                    // Group by type
+                    if (!itemsByType[item.type]) {
+                        itemsByType[item.type] = [];
+                    }
+                    itemsByType[item.type].push(item);
+                    
+                    // Group by state
+                    if (!itemsByState[item.state]) {
+                        itemsByState[item.state] = [];
+                    }
+                    itemsByState[item.state].push(item);
+                });
+                
+                return {
+                    name: args.iteration,
+                    path: `${args.project}\\${args.iteration}`,
+                    workItemCount: workItems.length,
+                    workItemsByType: itemsByType,
+                    workItemsByState: itemsByState,
+                    workItems: workItems
+                };
+            }
+            
             return {
-                iteration: formatIteration(iteration),
-                message: 'Iteration found. Note: Capacity details require additional Azure DevOps APIs not available via CLI.'
+                error: `Iteration '${args.iteration}' not found in project '${args.project}'`
             };
         }
         
+        // Get work items in this iteration
+        const workItems = await getIterationWorkItems({
+            project: args.project,
+            iteration: args.iteration
+        });
+        
+        // Group work items by type and state
+        const itemsByType: Record<string, any[]> = {};
+        const itemsByState: Record<string, any[]> = {};
+        
+        workItems.forEach(item => {
+            // Group by type
+            if (!itemsByType[item.type]) {
+                itemsByType[item.type] = [];
+            }
+            itemsByType[item.type].push(item);
+            
+            // Group by state
+            if (!itemsByState[item.state]) {
+                itemsByState[item.state] = [];
+            }
+            itemsByState[item.state].push(item);
+        });
+        
         return {
-            message: 'Iteration not found in team iterations'
+            ...iteration,
+            workItemCount: workItems.length,
+            workItemsByType: itemsByType,
+            workItemsByState: itemsByState,
+            workItems: workItems
         };
     } catch (error: any) {
-        // Fallback to basic iteration info
         return {
-            message: `Unable to get capacity details: ${error.message}. Use Azure DevOps web interface for detailed capacity planning.`
+            error: `Failed to get iteration details: ${error.message}`
         };
     }
 }
