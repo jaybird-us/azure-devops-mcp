@@ -18,7 +18,7 @@ import * as wikiHandlers from './handlers/wiki.js';
 const server = new Server(
     {
         name: 'azure-devops-mcp',
-        version: '2.4.0',
+        version: '2.4.1',
     },
     {
         capabilities: {
@@ -251,7 +251,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
-    console.error('Azure DevOps MCP Server v2.4.0 running with 41 tools enabled...');
+    console.error('Azure DevOps MCP Server v2.4.1 running with 41 tools enabled...');
 }
 
 main().catch(console.error);
