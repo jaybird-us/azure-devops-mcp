@@ -237,11 +237,11 @@ export async function handleGetWikiPage(args: any): Promise<HandlerResult> {
         const page = JSON.parse(stdout);
 
         const formatted = {
-            path: page.page?.path || page.path,
-            version: page.page?.gitItemPath ? page.eTag : page.page?.version || page.eTag,
-            content: page.content,
+            path: page.page?.path,
+            version: page.eTag,
+            content: page.page?.content,
             subPages: page.page?.subPages?.map((sp: any) => sp.path),
-            url: page.page?.url || page.url,
+            url: page.page?.url,
             gitItemPath: page.page?.gitItemPath,
         };
 
