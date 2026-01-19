@@ -12,12 +12,13 @@ import * as discoveryHandlers from './handlers/discovery.js';
 import * as projectHandlers from './handlers/projects.js';
 import * as iterationHandlers from './handlers/iterations.js';
 import * as relationHandlers from './handlers/relations.js';
+import * as wikiHandlers from './handlers/wiki.js';
 
 // Create server
 const server = new Server(
     {
         name: 'azure-devops-mcp',
-        version: '2.3.0',
+        version: '2.4.0',
     },
     {
         capabilities: {
@@ -174,7 +175,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     }],
                 };
 
-            // Relation Operations (4 tools) - NEW!
+            // Relation Operations (4 tools)
             case 'add_work_item_relation':
                 result = await relationHandlers.handleAddWorkItemRelation(args as any);
                 break;
@@ -186,6 +187,32 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 break;
             case 'list_relation_types':
                 result = await relationHandlers.handleListRelationTypes(args as any);
+                break;
+
+            // Wiki Operations (8 tools)
+            case 'list_wikis':
+                result = await wikiHandlers.handleListWikis(args as any);
+                break;
+            case 'get_wiki':
+                result = await wikiHandlers.handleGetWiki(args as any);
+                break;
+            case 'create_wiki':
+                result = await wikiHandlers.handleCreateWiki(args as any);
+                break;
+            case 'delete_wiki':
+                result = await wikiHandlers.handleDeleteWiki(args as any);
+                break;
+            case 'get_wiki_page':
+                result = await wikiHandlers.handleGetWikiPage(args as any);
+                break;
+            case 'create_wiki_page':
+                result = await wikiHandlers.handleCreateWikiPage(args as any);
+                break;
+            case 'update_wiki_page':
+                result = await wikiHandlers.handleUpdateWikiPage(args as any);
+                break;
+            case 'delete_wiki_page':
+                result = await wikiHandlers.handleDeleteWikiPage(args as any);
                 break;
 
             default:
@@ -224,7 +251,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
-    console.error('Azure DevOps MCP Server v2.3.0 running with 33 tools enabled...');
+    console.error('Azure DevOps MCP Server v2.4.0 running with 41 tools enabled...');
 }
 
 main().catch(console.error);

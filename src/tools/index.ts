@@ -5,8 +5,9 @@ import { projectTools } from './projects.js';
 import { iterationTools } from './iterations.js';
 import { relationTools } from './relations.js';
 import { organizationTools } from './organization.js';
+import { wikiTools } from './wiki.js';
 
-// Combine all tools (33 total)
+// Combine all tools (41 total)
 export const allTools: ToolDefinition[] = [
     ...organizationTools, // 3 tools - Organization management (list, get, set)
     ...workItemTools,     // 6 tools
@@ -14,4 +15,5 @@ export const allTools: ToolDefinition[] = [
     ...projectTools,      // 6 tools
     ...iterationTools,    // 5 tools
     ...relationTools,     // 4 tools
+    ...wikiTools,         // 8 tools - Wiki management
 ];
