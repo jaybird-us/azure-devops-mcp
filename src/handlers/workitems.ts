@@ -30,10 +30,18 @@ async function resolveAssignedTo(value: string): Promise<string> {
     return value;
 }
 
+/**
+ * Build org flag for Azure CLI commands
+ */
+async function getOrgFlag(orgOverride?: string): Promise<string> {
+    const org = await ensureOrgConfigured(orgOverride);
+    return `--organization "${org}"`;
+}
+
 export async function handleQueryWorkItems(args: any): Promise<HandlerResult> {
-    await ensureOrgConfigured();
+    const orgFlag = await getOrgFlag(args.organization);
     const query = buildQuery(args.query);
-    let command = `az boards query --wiql "${query}"`;
+    let command = `az boards query ${orgFlag} --wiql "${query}"`;
     if (args.project) command += ` --project "${args.project}"`;
     command += ' --output json';
 
@@ -58,9 +66,8 @@ export async function handleQueryWorkItems(args: any): Promise<HandlerResult> {
 }
 
 export async function handleGetWorkItem(args: any): Promise<HandlerResult> {
-    await ensureOrgConfigured();
-    // FIXED: Removed --open false flag that was causing CLI issues
-    let command = `az boards work-item show --id ${args.id}`;
+    const orgFlag = await getOrgFlag(args.organization);
+    let command = `az boards work-item show ${orgFlag} --id ${args.id}`;
     if (args.fields) {
         command += ` --fields "${args.fields}"`;
     }
@@ -91,10 +98,10 @@ export async function handleGetWorkItem(args: any): Promise<HandlerResult> {
 }
 
 export async function handleCreateWorkItem(args: any): Promise<HandlerResult> {
-    await ensureOrgConfigured();
-    let command = `az boards work-item create --type "${args.type}" --title "${args.title}"`;
+    const orgFlag = await getOrgFlag(args.organization);
+    let command = `az boards work-item create ${orgFlag} --type "${args.type}" --title "${args.title}"`;
 
-    // FIXED: Check for default project if not specified
+    // Check for default project if not specified
     if (!args.project) {
         try {
             const { stdout: configOut } = await execAsync('az devops configure --list --output json');
@@ -146,31 +153,90 @@ export async function handleCreateWorkItem(args: any): Promise<HandlerResult> {
 }
 
 export async function handleUpdateWorkItem(args: any): Promise<HandlerResult> {
-    await ensureOrgConfigured();
-    let command = `az boards work-item update --id ${args.id}`;
+    const orgFlag = await getOrgFlag(args.organization);
+    let result: any;
+    const updatedFields: string[] = [];
 
-    if (args.title) command += ` --title "${args.title}"`;
-    if (args.state) command += ` --state "${args.state}"`;
-    if (args.assigned_to) {
-        // Resolve @Me to actual email
-        const assignedTo = await resolveAssignedTo(args.assigned_to);
-        if (assignedTo) {
-            command += ` --assigned-to "${assignedTo}"`;
+    // Handle common fields via CLI (for backward compatibility)
+    const hasCommonFields = args.title || args.state || args.assigned_to || args.description;
+
+    if (hasCommonFields) {
+        let command = `az boards work-item update ${orgFlag} --id ${args.id}`;
+
+        if (args.title) {
+            command += ` --title "${args.title}"`;
+            updatedFields.push('title');
+        }
+        if (args.state) {
+            command += ` --state "${args.state}"`;
+            updatedFields.push('state');
+        }
+        if (args.assigned_to) {
+            const assignedTo = await resolveAssignedTo(args.assigned_to);
+            if (assignedTo) {
+                command += ` --assigned-to "${assignedTo}"`;
+                updatedFields.push('assigned_to');
+            }
+        }
+        if (args.description) {
+            const desc = args.description.replace(/"/g, '\\"');
+            command += ` --description "${desc}"`;
+            updatedFields.push('description');
+        }
+        command += ' --output json';
+
+        const { stdout } = await execAsync(command);
+        result = JSON.parse(stdout);
+    }
+
+    // Handle arbitrary fields via CLI --fields flag
+    if (args.fields && typeof args.fields === 'object') {
+        const fieldEntries = Object.entries(args.fields);
+
+        if (fieldEntries.length > 0) {
+            try {
+                // Build command with --fields for each field
+                let fieldsCommand = `az boards work-item update ${orgFlag} --id ${args.id}`;
+
+                for (const [fieldRef, value] of fieldEntries) {
+                    // Escape the value for shell and handle multiline/HTML content
+                    const escapedValue = String(value)
+                        .replace(/\\/g, '\\\\')
+                        .replace(/"/g, '\\"');
+                    fieldsCommand += ` --fields "${fieldRef}=${escapedValue}"`;
+                }
+                fieldsCommand += ' --output json';
+
+                const { stdout } = await execAsync(fieldsCommand);
+                result = JSON.parse(stdout);
+                updatedFields.push(...fieldEntries.map(([key]) => key));
+            } catch (error: any) {
+                return {
+                    content: [{
+                        type: 'text',
+                        text: JSON.stringify({
+                            error: `Failed to update fields: ${error.message}`,
+                            hint: 'Use discover_fields tool to find valid field reference names for your process template.',
+                            attempted_fields: fieldEntries.map(([key]) => key)
+                        }, null, 2),
+                    }],
+                    isError: true,
+                };
+            }
         }
     }
-    if (args.description) {
-        const desc = args.description.replace(/"/g, '\\"');
-        command += ` --description "${desc}"`;
-    }
-    command += ' --output json';
 
-    const { stdout } = await execAsync(command);
-    const result = JSON.parse(stdout);
+    // If no fields were updated yet, fetch current state
+    if (!result) {
+        const { stdout } = await execAsync(`az boards work-item show ${orgFlag} --id ${args.id} --output json`);
+        result = JSON.parse(stdout);
+    }
 
     // Add comment if provided
     if (args.comment) {
-        const commentCommand = `az boards work-item update --id ${args.id} --discussion "${args.comment.replace(/"/g, '\\"')}" --output json`;
+        const commentCommand = `az boards work-item update ${orgFlag} --id ${args.id} --discussion "${args.comment.replace(/"/g, '\\"')}" --output json`;
         await execAsync(commentCommand);
+        updatedFields.push('comment');
     }
 
     const formatted = {
@@ -178,6 +244,7 @@ export async function handleUpdateWorkItem(args: any): Promise<HandlerResult> {
         title: result.fields?.['System.Title'],
         state: result.fields?.['System.State'],
         assignedTo: result.fields?.['System.AssignedTo']?.displayName,
+        updatedFields: updatedFields,
         message: `Updated work item #${args.id}`,
     };
 
@@ -190,8 +257,8 @@ export async function handleUpdateWorkItem(args: any): Promise<HandlerResult> {
 }
 
 export async function handleAddComment(args: any): Promise<HandlerResult> {
-    await ensureOrgConfigured();
-    const command = `az boards work-item update --id ${args.id} --discussion "${args.comment.replace(/"/g, '\\"')}" --output json`;
+    const orgFlag = await getOrgFlag(args.organization);
+    const command = `az boards work-item update ${orgFlag} --id ${args.id} --discussion "${args.comment.replace(/"/g, '\\"')}" --output json`;
 
     await execAsync(command);
 
@@ -206,13 +273,13 @@ export async function handleAddComment(args: any): Promise<HandlerResult> {
 }
 
 export async function handleListMyWork(args: any): Promise<HandlerResult> {
-    await ensureOrgConfigured();
-    
+    const orgFlag = await getOrgFlag(args.organization);
+
     // Base query for active items
-    let query = `SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType] 
-              FROM workitems 
-              WHERE [System.AssignedTo] = @Me 
-              AND [System.State] <> 'Closed' 
+    let query = `SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType]
+              FROM workitems
+              WHERE [System.AssignedTo] = @Me
+              AND [System.State] <> 'Closed'
               AND [System.State] <> 'Removed'`;
 
     // Handle recently completed items with field resolution
@@ -220,34 +287,34 @@ export async function handleListMyWork(args: any): Promise<HandlerResult> {
         try {
             // Use field resolver to get the correct ClosedDate field
             const closedDateField = await fieldResolver.resolve('ClosedDate');
-            
+
             // Check if the field exists
             const fieldExists = await fieldResolver.fieldExists(closedDateField);
-            
+
             if (fieldExists) {
-                query = `SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType] 
-                    FROM workitems 
-                    WHERE [System.AssignedTo] = @Me 
-                    AND ([System.State] <> 'Closed' 
+                query = `SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType]
+                    FROM workitems
+                    WHERE [System.AssignedTo] = @Me
+                    AND ([System.State] <> 'Closed'
                          OR [${closedDateField}] >= @Today - 7)`;
             } else {
                 // Fallback: just get all assigned items including closed ones
                 console.warn('ClosedDate field not found. Including all closed items assigned to you.');
-                query = `SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType] 
-                    FROM workitems 
+                query = `SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType]
+                    FROM workitems
                     WHERE [System.AssignedTo] = @Me`;
             }
         } catch (error) {
             // If field resolution fails, fall back to default behavior
             console.warn('Field resolution failed. Using fallback query.');
-            query = `SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType] 
-                FROM workitems 
+            query = `SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType]
+                FROM workitems
                 WHERE [System.AssignedTo] = @Me`;
         }
     }
 
     try {
-        const command = `az boards query --wiql "${query}" --output json`;
+        const command = `az boards query ${orgFlag} --wiql "${query}" --output json`;
         const { stdout } = await execAsync(command);
         const items = JSON.parse(stdout);
 
@@ -273,12 +340,12 @@ export async function handleListMyWork(args: any): Promise<HandlerResult> {
         // If the query fails, try a simpler query without the ClosedDate field
         if (args.include_recently_completed && error.message.includes('field')) {
             // Retry without the ClosedDate filter
-            const fallbackQuery = `SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType] 
-                FROM workitems 
+            const fallbackQuery = `SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType]
+                FROM workitems
                 WHERE [System.AssignedTo] = @Me`;
-            
+
             try {
-                const command = `az boards query --wiql "${fallbackQuery}" --output json`;
+                const command = `az boards query ${orgFlag} --wiql "${fallbackQuery}" --output json`;
                 const { stdout } = await execAsync(command);
                 const items = JSON.parse(stdout);
 
@@ -307,7 +374,7 @@ export async function handleListMyWork(args: any): Promise<HandlerResult> {
                 throw fallbackError;
             }
         }
-        
+
         // Re-throw original error if not field-related
         throw error;
     }
