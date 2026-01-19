@@ -1,12 +1,11 @@
 # Azure DevOps MCP Server
 
+[![npm version](https://img.shields.io/npm/v/@jybrd/azure-devops-mcp)](https://www.npmjs.com/package/@jybrd/azure-devops-mcp)
 [![MCP](https://img.shields.io/badge/MCP-1.0-blue)](https://modelcontextprotocol.io)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org)
 
-A Model Context Protocol (MCP) server that enables Claude to interact with Azure DevOps work items, projects, and boards directly through natural language.
-
-**Version 2.2.0** - Now with 30 tools including work item relationship management
+A Model Context Protocol (MCP) server that enables Claude to interact with Azure DevOps work items, projects, wikis, and boards directly through natural language.
 
 ## 🎯 Features
 
@@ -34,13 +33,20 @@ A Model Context Protocol (MCP) server that enables Claude to interact with Azure
   - Include recently completed items
   - Use smart query shortcuts (`my-items`, `my-bugs`, `my-tasks`, `recent`)
 
-- **Work Item Relationships** 🆕
+- **Work Item Relationships**
   - Add relationships between work items (Parent/Child, Related, Dependencies)
   - Remove relationships between work items
   - View all relationships for a work item
   - List available relationship types
   - Build work item hierarchies (Epic → Feature → Story → Task)
   - Track dependencies and mark duplicates
+
+- **Wiki Management** 🆕
+  - List and manage project wikis
+  - Create project wikis or code wikis (from repository)
+  - Get, create, update, and delete wiki pages
+  - Full markdown content support
+  - Version tracking with ETag for safe updates
 
 ## 📋 Prerequisites
 
