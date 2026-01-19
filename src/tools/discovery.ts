@@ -1,5 +1,10 @@
 import { ToolDefinition } from '../types.js';
 
+const orgParam = {
+    type: 'string',
+    description: 'Organization name or URL (optional, uses current org if not specified)'
+};
+
 export const discoveryTools: ToolDefinition[] = [
     {
         name: 'discover_fields',
@@ -22,7 +27,8 @@ export const discoveryTools: ToolDefinition[] = [
                 verbose: {
                     type: 'boolean',
                     description: 'Include full details including operations (default: false)'
-                }
+                },
+                organization: orgParam,
             },
         },
     },
@@ -33,10 +39,11 @@ export const discoveryTools: ToolDefinition[] = [
             type: 'object',
             properties: {
                 project: { type: 'string', description: 'Project name (optional)' },
-                include_fields: { 
-                    type: 'boolean', 
-                    description: 'Include field details for each type (default: false)' 
+                include_fields: {
+                    type: 'boolean',
+                    description: 'Include field details for each type (default: false)'
                 },
+                organization: orgParam,
             },
         },
     },
@@ -47,6 +54,7 @@ export const discoveryTools: ToolDefinition[] = [
             type: 'object',
             properties: {
                 id: { type: 'number', description: 'Work item ID' },
+                organization: orgParam,
             },
             required: ['id'],
         },
@@ -59,6 +67,7 @@ export const discoveryTools: ToolDefinition[] = [
             properties: {
                 work_item_type: { type: 'string', description: 'Work item type (Task, Bug, etc.)' },
                 project: { type: 'string', description: 'Project name (optional)' },
+                organization: orgParam,
             },
             required: ['work_item_type'],
         },
@@ -68,7 +77,9 @@ export const discoveryTools: ToolDefinition[] = [
         description: 'Discover relationship types and link types available',
         inputSchema: {
             type: 'object',
-            properties: {},
+            properties: {
+                organization: orgParam,
+            },
         },
     },
     {
@@ -79,6 +90,7 @@ export const discoveryTools: ToolDefinition[] = [
             properties: {
                 query: { type: 'string', description: 'WIQL query to test' },
                 show_raw: { type: 'boolean', description: 'Show completely raw JSON response' },
+                organization: orgParam,
             },
             required: ['query'],
         },
@@ -90,6 +102,7 @@ export const discoveryTools: ToolDefinition[] = [
             type: 'object',
             properties: {
                 field_name: { type: 'string', description: 'Field reference name (e.g. System.Priority)' },
+                organization: orgParam,
             },
             required: ['field_name'],
         },
@@ -99,7 +112,9 @@ export const discoveryTools: ToolDefinition[] = [
         description: 'Get the currently configured default project and organization',
         inputSchema: {
             type: 'object',
-            properties: {},
+            properties: {
+                organization: orgParam,
+            },
         },
     },
     {
@@ -107,7 +122,9 @@ export const discoveryTools: ToolDefinition[] = [
         description: 'Check Azure DevOps connection and configuration status',
         inputSchema: {
             type: 'object',
-            properties: {},
+            properties: {
+                organization: orgParam,
+            },
         },
     },
 ];

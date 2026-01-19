@@ -5,12 +5,19 @@ import { HandlerResult } from '../types.js';
 
 const execAsync = promisify(exec);
 
+/**
+ * Build org flag for Azure CLI commands
+ */
+async function getOrgFlag(orgOverride?: string): Promise<string> {
+    const org = await ensureOrgConfigured(orgOverride);
+    return `--organization "${org}"`;
+}
+
 export async function handleListProjects(args: any): Promise<HandlerResult> {
     try {
-        const org = await ensureOrgConfigured();
-        
-        // Now run the command with the org
-        const command = `az devops project list --organization "${org}" --output json`;
+        const orgFlag = await getOrgFlag(args.organization);
+
+        const command = `az devops project list ${orgFlag} --output json`;
 
         const { stdout } = await execAsync(command);
         const projects = JSON.parse(stdout);
@@ -45,8 +52,8 @@ export async function handleListProjects(args: any): Promise<HandlerResult> {
 }
 
 export async function handleGetProject(args: any): Promise<HandlerResult> {
-    await ensureOrgConfigured();
-    const command = `az devops project show --project "${args.project}" --output json`;
+    const orgFlag = await getOrgFlag(args.organization);
+    const command = `az devops project show ${orgFlag} --project "${args.project}" --output json`;
     const { stdout } = await execAsync(command);
     const project = JSON.parse(stdout);
 
@@ -72,8 +79,8 @@ export async function handleGetProject(args: any): Promise<HandlerResult> {
 }
 
 export async function handleListProjectTeams(args: any): Promise<HandlerResult> {
-    await ensureOrgConfigured();
-    const command = `az devops team list --project "${args.project}" --output json`;
+    const orgFlag = await getOrgFlag(args.organization);
+    const command = `az devops team list ${orgFlag} --project "${args.project}" --output json`;
     const { stdout } = await execAsync(command);
     const teams = JSON.parse(stdout);
 
@@ -94,8 +101,8 @@ export async function handleListProjectTeams(args: any): Promise<HandlerResult> 
 }
 
 export async function handleListProjectRepos(args: any): Promise<HandlerResult> {
-    await ensureOrgConfigured();
-    const command = `az repos list --project "${args.project}" --output json`;
+    const orgFlag = await getOrgFlag(args.organization);
+    const command = `az repos list ${orgFlag} --project "${args.project}" --output json`;
     const { stdout } = await execAsync(command);
     const repos = JSON.parse(stdout);
 
@@ -119,8 +126,8 @@ export async function handleListProjectRepos(args: any): Promise<HandlerResult> 
 }
 
 export async function handleListProjectPipelines(args: any): Promise<HandlerResult> {
-    await ensureOrgConfigured();
-    const command = `az pipelines list --project "${args.project}" --output json`;
+    const orgFlag = await getOrgFlag(args.organization);
+    const command = `az pipelines list ${orgFlag} --project "${args.project}" --output json`;
     const { stdout } = await execAsync(command);
     const pipelines = JSON.parse(stdout);
 
@@ -140,17 +147,17 @@ export async function handleListProjectPipelines(args: any): Promise<HandlerResu
 }
 
 export async function handleGetProjectStats(args: any): Promise<HandlerResult> {
-    await ensureOrgConfigured();
+    const orgFlag = await getOrgFlag(args.organization);
     // Query for all work items in the project
-    let query = `SELECT [System.Id], [System.WorkItemType], [System.State], [System.AssignedTo] 
-               FROM workitems 
+    let query = `SELECT [System.Id], [System.WorkItemType], [System.State], [System.AssignedTo]
+               FROM workitems
                WHERE [System.TeamProject] = '${args.project}'`;
 
     if (!args.include_closed) {
         query += ` AND [System.State] <> 'Closed' AND [System.State] <> 'Removed'`;
     }
 
-    const command = `az boards query --wiql "${query}" --output json`;
+    const command = `az boards query ${orgFlag} --wiql "${query}" --output json`;
     const { stdout } = await execAsync(command);
     const items = JSON.parse(stdout);
 

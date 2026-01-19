@@ -1,5 +1,10 @@
 import { ToolDefinition } from '../types.js';
 
+const orgParam = {
+    type: 'string',
+    description: 'Organization name or URL (optional, uses current org if not specified)'
+};
+
 export const relationTools: ToolDefinition[] = [
     {
         name: 'add_work_item_relation',
@@ -7,25 +12,26 @@ export const relationTools: ToolDefinition[] = [
         inputSchema: {
             type: 'object',
             properties: {
-                id: { 
-                    type: 'number', 
-                    description: 'Source work item ID' 
+                id: {
+                    type: 'number',
+                    description: 'Source work item ID'
                 },
-                relation_type: { 
-                    type: 'string', 
-                    description: 'Relation type (e.g., "Parent", "Child", "Related", "Predecessor", "Successor", "Duplicate")' 
+                relation_type: {
+                    type: 'string',
+                    description: 'Relation type (e.g., "Parent", "Child", "Related", "Predecessor", "Successor", "Duplicate")'
                 },
-                target_id: { 
+                target_id: {
                     oneOf: [
                         { type: 'number' },
                         { type: 'array', items: { type: 'number' } }
                     ],
-                    description: 'Target work item ID(s) (optional if target_url is provided)' 
+                    description: 'Target work item ID(s) (optional if target_url is provided)'
                 },
-                target_url: { 
-                    type: 'string', 
-                    description: 'URL to target work item (optional if target_id is provided)' 
-                }
+                target_url: {
+                    type: 'string',
+                    description: 'URL to target work item (optional if target_id is provided)'
+                },
+                organization: orgParam,
             },
             required: ['id', 'relation_type'],
         },
@@ -36,21 +42,22 @@ export const relationTools: ToolDefinition[] = [
         inputSchema: {
             type: 'object',
             properties: {
-                id: { 
-                    type: 'number', 
-                    description: 'Source work item ID' 
+                id: {
+                    type: 'number',
+                    description: 'Source work item ID'
                 },
-                relation_type: { 
-                    type: 'string', 
-                    description: 'Relation type to remove' 
+                relation_type: {
+                    type: 'string',
+                    description: 'Relation type to remove'
                 },
-                target_id: { 
+                target_id: {
                     oneOf: [
                         { type: 'number' },
                         { type: 'array', items: { type: 'number' } }
                     ],
-                    description: 'Target work item ID(s) to unlink' 
-                }
+                    description: 'Target work item ID(s) to unlink'
+                },
+                organization: orgParam,
             },
             required: ['id', 'relation_type', 'target_id'],
         },
@@ -61,10 +68,11 @@ export const relationTools: ToolDefinition[] = [
         inputSchema: {
             type: 'object',
             properties: {
-                id: { 
-                    type: 'number', 
-                    description: 'Work item ID' 
-                }
+                id: {
+                    type: 'number',
+                    description: 'Work item ID'
+                },
+                organization: orgParam,
             },
             required: ['id'],
         },
@@ -74,7 +82,9 @@ export const relationTools: ToolDefinition[] = [
         description: 'List all available work item relation types',
         inputSchema: {
             type: 'object',
-            properties: {},
+            properties: {
+                organization: orgParam,
+            },
         },
     },
 ];

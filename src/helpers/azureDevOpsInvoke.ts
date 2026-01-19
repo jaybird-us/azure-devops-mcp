@@ -16,6 +16,7 @@ export interface InvokeOptions {
     body?: any;
     apiVersion?: string;
     rawOutput?: boolean;
+    organization?: string; // Optional org override
 }
 
 /**
@@ -24,15 +25,16 @@ export interface InvokeOptions {
  * @returns Parsed JSON response from the API
  */
 export async function azureDevOpsInvoke(options: InvokeOptions): Promise<any> {
-    await ensureOrgConfigured();
-    
+    const org = await ensureOrgConfigured(options.organization);
+
     let command = `az devops invoke`;
+    command += ` --organization "${org}"`;
     command += ` --area ${options.area}`;
     command += ` --resource ${options.resource}`;
     command += ` --http-method ${options.httpMethod || 'GET'}`;
     command += ` --api-version ${options.apiVersion || '7.1'}`;
     command += ` --output json`;
-    
+
     // Handle route parameters (e.g., project=MyProject teamId=123)
     if (options.routeParameters) {
         const params = Object.entries(options.routeParameters)
@@ -42,7 +44,7 @@ export async function azureDevOpsInvoke(options: InvokeOptions): Promise<any> {
             command += ` --route-parameters ${params}`;
         }
     }
-    
+
     // Handle query parameters (URL query string parameters)
     if (options.queryParameters) {
         const queryString = Object.entries(options.queryParameters)
@@ -53,7 +55,7 @@ export async function azureDevOpsInvoke(options: InvokeOptions): Promise<any> {
             command += ` --query-parameters "${queryString}"`;
         }
     }
-    
+
     // Handle request body for POST/PATCH/PUT requests
     let tempFile: string | undefined;
     if (options.body && ['POST', 'PATCH', 'PUT'].includes(options.httpMethod || '')) {
@@ -62,11 +64,11 @@ export async function azureDevOpsInvoke(options: InvokeOptions): Promise<any> {
         writeFileSync(tempFile, JSON.stringify(options.body));
         command += ` --in-file "${tempFile}"`;
     }
-    
+
     try {
         // Execute the command
         const { stdout, stderr } = await execAsync(command);
-        
+
         // Clean up temp file if created
         if (tempFile) {
             try {
@@ -75,12 +77,12 @@ export async function azureDevOpsInvoke(options: InvokeOptions): Promise<any> {
                 // Ignore cleanup errors
             }
         }
-        
+
         // Handle raw output option
         if (options.rawOutput) {
             return stdout;
         }
-        
+
         // Parse and return JSON response
         try {
             return JSON.parse(stdout);
@@ -98,7 +100,7 @@ export async function azureDevOpsInvoke(options: InvokeOptions): Promise<any> {
                 // Ignore cleanup errors
             }
         }
-        
+
         // Enhanced error handling
         if (error.stderr) {
             // Check for common errors
@@ -112,7 +114,7 @@ export async function azureDevOpsInvoke(options: InvokeOptions): Promise<any> {
                 throw new Error('Invalid field or resource. The requested field may not exist in this process template.');
             }
         }
-        
+
         // Re-throw with more context
         throw new Error(`Azure DevOps API call failed: ${error.message || error}`);
     }
@@ -120,9 +122,10 @@ export async function azureDevOpsInvoke(options: InvokeOptions): Promise<any> {
 
 /**
  * Helper to get the organization URL from configuration
+ * @param overrideOrg Optional organization override
  */
-export async function getOrganization(): Promise<string> {
-    return await ensureOrgConfigured();
+export async function getOrganization(overrideOrg?: string): Promise<string> {
+    return await ensureOrgConfigured(overrideOrg);
 }
 
 /**
@@ -151,18 +154,18 @@ export function buildFieldRef(fieldName: string): string {
             'Microsoft.VSTS.Common.ValueArea'
         ]
     };
-    
+
     // If it's already a full reference, return as-is
     if (fieldName.includes('.')) {
         return fieldName;
     }
-    
+
     // Check if we have a mapping
     const mappings = commonMappings[fieldName];
     if (mappings && mappings.length > 0) {
         return mappings[0]; // Return the most common one
     }
-    
+
     // Default to System prefix for unknown fields
     return `System.${fieldName}`;
 }

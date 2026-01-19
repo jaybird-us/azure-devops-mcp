@@ -2,14 +2,22 @@ import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 import { ensureOrgConfigured } from '../helpers/ensureOrg.js';
 import { HandlerResult } from '../types.js';
-import type { 
-    AddWorkItemRelationArgs, 
-    RemoveWorkItemRelationArgs, 
+import type {
+    AddWorkItemRelationArgs,
+    RemoveWorkItemRelationArgs,
     GetWorkItemRelationsArgs,
     ListRelationTypesArgs
 } from '../types/relations.js';
 
 const execAsync = promisify(exec);
+
+/**
+ * Build org flag for Azure CLI commands
+ */
+async function getOrgFlag(orgOverride?: string): Promise<string> {
+    const org = await ensureOrgConfigured(orgOverride);
+    return `--organization "${org}"`;
+}
 
 /**
  * Map user-friendly relation types to Azure DevOps relation types
@@ -56,10 +64,10 @@ function formatTargetIds(targetId: number | number[] | undefined): string[] {
 }
 
 export async function handleAddWorkItemRelation(args: AddWorkItemRelationArgs): Promise<HandlerResult> {
-    await ensureOrgConfigured();
-    
+    const orgFlag = await getOrgFlag(args.organization);
+
     const relationType = normalizeRelationType(args.relation_type);
-    let command = `az boards work-item relation add --id ${args.id} --relation-type "${relationType}"`;
+    let command = `az boards work-item relation add ${orgFlag} --id ${args.id} --relation-type "${relationType}"`;
     
     // Handle target specification
     if (args.target_id) {
@@ -125,11 +133,11 @@ export async function handleAddWorkItemRelation(args: AddWorkItemRelationArgs): 
 }
 
 export async function handleRemoveWorkItemRelation(args: RemoveWorkItemRelationArgs): Promise<HandlerResult> {
-    await ensureOrgConfigured();
-    
+    const orgFlag = await getOrgFlag(args.organization);
+
     const relationType = normalizeRelationType(args.relation_type);
     const targetIds = formatTargetIds(args.target_id);
-    
+
     if (targetIds.length === 0) {
         return {
             content: [{
@@ -141,8 +149,8 @@ export async function handleRemoveWorkItemRelation(args: RemoveWorkItemRelationA
             isError: true,
         };
     }
-    
-    let command = `az boards work-item relation remove --id ${args.id} --relation-type "${relationType}" --target-id ${targetIds.join(' ')} --yes --output json`;
+
+    let command = `az boards work-item relation remove ${orgFlag} --id ${args.id} --relation-type "${relationType}" --target-id ${targetIds.join(' ')} --yes --output json`;
     
     try {
         const { stdout } = await execAsync(command);
@@ -175,9 +183,9 @@ export async function handleRemoveWorkItemRelation(args: RemoveWorkItemRelationA
 }
 
 export async function handleGetWorkItemRelations(args: GetWorkItemRelationsArgs): Promise<HandlerResult> {
-    await ensureOrgConfigured();
-    
-    const command = `az boards work-item relation show --id ${args.id} --output json`;
+    const orgFlag = await getOrgFlag(args.organization);
+
+    const command = `az boards work-item relation show ${orgFlag} --id ${args.id} --output json`;
     
     try {
         const { stdout } = await execAsync(command);
@@ -256,9 +264,9 @@ export async function handleGetWorkItemRelations(args: GetWorkItemRelationsArgs)
 }
 
 export async function handleListRelationTypes(args: ListRelationTypesArgs): Promise<HandlerResult> {
-    await ensureOrgConfigured();
-    
-    const command = `az boards work-item relation list-type --output json`;
+    const orgFlag = await getOrgFlag(args.organization);
+
+    const command = `az boards work-item relation list-type ${orgFlag} --output json`;
     
     try {
         const { stdout } = await execAsync(command);

@@ -6,6 +6,7 @@ import {
     CallToolRequestSchema
 } from '@modelcontextprotocol/sdk/types.js';
 import { allTools } from './tools/index.js';
+import * as organizationHandlers from './handlers/organization.js';
 import * as workItemHandlers from './handlers/workitems.js';
 import * as discoveryHandlers from './handlers/discovery.js';
 import * as projectHandlers from './handlers/projects.js';
@@ -16,7 +17,7 @@ import * as relationHandlers from './handlers/relations.js';
 const server = new Server(
     {
         name: 'azure-devops-mcp',
-        version: '2.2.0',
+        version: '2.3.0',
     },
     {
         capabilities: {
@@ -51,6 +52,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         let result: any;
 
         switch (name) {
+            // Organization Operations (3 tools)
+            case 'list_organizations':
+                result = await organizationHandlers.handleListOrganizations(args);
+                break;
+            case 'get_organization':
+                result = await organizationHandlers.handleGetOrganization(args);
+                break;
+            case 'set_organization':
+                result = await organizationHandlers.handleSetOrganization(args);
+                break;
+
             // Work Item Operations (6 tools)
             case 'query_work_items':
                 result = await workItemHandlers.handleQueryWorkItems(args);
@@ -212,7 +224,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
-    console.error('Azure DevOps MCP Server v2.2.0 running with 30 tools enabled...');
+    console.error('Azure DevOps MCP Server v2.3.0 running with 33 tools enabled...');
 }
 
 main().catch(console.error);

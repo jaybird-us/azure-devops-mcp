@@ -7,20 +7,23 @@ export interface AddWorkItemRelationArgs {
     relation_type: string;
     target_id?: number | number[];
     target_url?: string;
+    organization?: string;
 }
 
 export interface RemoveWorkItemRelationArgs {
     id: number;
     relation_type: string;
     target_id: number | number[];
+    organization?: string;
 }
 
 export interface GetWorkItemRelationsArgs {
     id: number;
+    organization?: string;
 }
 
 export interface ListRelationTypesArgs {
-    // No parameters needed
+    organization?: string;
 }
 
 export interface WorkItemRelation {

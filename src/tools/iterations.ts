@@ -1,5 +1,10 @@
 import { ToolDefinition } from '../types.js';
 
+const orgParam = {
+    type: 'string',
+    description: 'Organization name or URL (optional, uses current org if not specified)'
+};
+
 export const iterationTools: ToolDefinition[] = [
     {
         name: 'list_iterations',
@@ -9,7 +14,8 @@ export const iterationTools: ToolDefinition[] = [
             properties: {
                 project: { type: 'string', description: 'Project name' },
                 team: { type: 'string', description: 'Team name (optional)' },
-                depth: { type: 'number', description: 'Depth of iteration tree (optional)' }
+                depth: { type: 'number', description: 'Depth of iteration tree (optional)' },
+                organization: orgParam,
             },
             required: ['project']
         }
@@ -21,7 +27,8 @@ export const iterationTools: ToolDefinition[] = [
             type: 'object',
             properties: {
                 project: { type: 'string', description: 'Project name' },
-                team: { type: 'string', description: 'Team name (optional)' }
+                team: { type: 'string', description: 'Team name (optional)' },
+                organization: orgParam,
             },
             required: ['project']
         }
@@ -33,7 +40,8 @@ export const iterationTools: ToolDefinition[] = [
             type: 'object',
             properties: {
                 project: { type: 'string', description: 'Project name' },
-                iteration: { type: 'string', description: 'Iteration name or path' }
+                iteration: { type: 'string', description: 'Iteration name or path' },
+                organization: orgParam,
             },
             required: ['project', 'iteration']
         }
@@ -46,7 +54,8 @@ export const iterationTools: ToolDefinition[] = [
             properties: {
                 id: { type: 'number', description: 'Work item ID' },
                 iteration: { type: 'string', description: 'Target iteration name' },
-                project: { type: 'string', description: 'Project name (optional)' }
+                project: { type: 'string', description: 'Project name (optional)' },
+                organization: orgParam,
             },
             required: ['id', 'iteration']
         }
@@ -58,7 +67,8 @@ export const iterationTools: ToolDefinition[] = [
             type: 'object',
             properties: {
                 project: { type: 'string', description: 'Project name' },
-                iteration: { type: 'string', description: 'Iteration name' }
+                iteration: { type: 'string', description: 'Iteration name' },
+                organization: orgParam,
             },
             required: ['project', 'iteration']
         }

@@ -1,12 +1,19 @@
 import { ToolDefinition } from '../types.js';
 
+const orgParam = {
+    type: 'string',
+    description: 'Organization name or URL (optional, uses current org if not specified)'
+};
+
 export const projectTools: ToolDefinition[] = [
     {
         name: 'list_projects',
         description: 'List all projects in the Azure DevOps organization',
         inputSchema: {
             type: 'object',
-            properties: {},
+            properties: {
+                organization: orgParam,
+            },
         },
     },
     {
@@ -16,6 +23,7 @@ export const projectTools: ToolDefinition[] = [
             type: 'object',
             properties: {
                 project: { type: 'string', description: 'Project name or ID' },
+                organization: orgParam,
             },
             required: ['project'],
         },
@@ -27,6 +35,7 @@ export const projectTools: ToolDefinition[] = [
             type: 'object',
             properties: {
                 project: { type: 'string', description: 'Project name' },
+                organization: orgParam,
             },
             required: ['project'],
         },
@@ -38,6 +47,7 @@ export const projectTools: ToolDefinition[] = [
             type: 'object',
             properties: {
                 project: { type: 'string', description: 'Project name' },
+                organization: orgParam,
             },
             required: ['project'],
         },
@@ -49,6 +59,7 @@ export const projectTools: ToolDefinition[] = [
             type: 'object',
             properties: {
                 project: { type: 'string', description: 'Project name' },
+                organization: orgParam,
             },
             required: ['project'],
         },
@@ -61,6 +72,7 @@ export const projectTools: ToolDefinition[] = [
             properties: {
                 project: { type: 'string', description: 'Project name' },
                 include_closed: { type: 'boolean', description: 'Include closed items in stats' },
+                organization: orgParam,
             },
             required: ['project'],
         },

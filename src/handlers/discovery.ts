@@ -7,21 +7,30 @@ import { HandlerResult } from '../types.js';
 
 const execAsync = promisify(exec);
 
+/**
+ * Build org flag for Azure CLI commands
+ */
+async function getOrgFlag(orgOverride?: string): Promise<string> {
+    const org = await ensureOrgConfigured(orgOverride);
+    return `--organization "${org}"`;
+}
+
 export async function handleDiscoverFields(args: any): Promise<HandlerResult> {
-    await ensureOrgConfigured();
-    
+    await ensureOrgConfigured(args.organization);
+
     try {
         // Support filtering options
         const category = args.category?.toLowerCase(); // 'system', 'vsts', 'custom', 'other'
         const search = args.search?.toLowerCase();
         const verbose = args.verbose === true;
         const limit = args.limit || 50; // Default to showing only 50 fields unless specified
-        
+
         // Use REST API to get fields
         const apiResponse = await azureDevOpsInvoke({
             area: 'wit',
             resource: 'fields',
-            httpMethod: 'GET'
+            httpMethod: 'GET',
+            organization: args.organization
         });
         
         const allFields = apiResponse.value || apiResponse || [];
@@ -133,9 +142,9 @@ export async function handleDiscoverFields(args: any): Promise<HandlerResult> {
 }
 
 export async function handleInspectWorkItem(args: any): Promise<HandlerResult> {
-    await ensureOrgConfigured();
+    const orgFlag = await getOrgFlag(args.organization);
     // This one still works with Azure CLI
-    const command = `az boards work-item show --id ${args.id} --output json`;
+    const command = `az boards work-item show ${orgFlag} --id ${args.id} --output json`;
     const { stdout } = await execAsync(command);
     const workItem = JSON.parse(stdout);
 
@@ -161,8 +170,8 @@ export async function handleInspectWorkItem(args: any): Promise<HandlerResult> {
 }
 
 export async function handleTestQuery(args: any): Promise<HandlerResult> {
-    await ensureOrgConfigured();
-    const command = `az boards query --wiql "${args.query}" --output json`;
+    const orgFlag = await getOrgFlag(args.organization);
+    const command = `az boards query ${orgFlag} --wiql "${args.query}" --output json`;
     const { stdout } = await execAsync(command);
     const queryResult = JSON.parse(stdout);
 
@@ -190,20 +199,21 @@ export async function handleTestQuery(args: any): Promise<HandlerResult> {
 }
 
 export async function handleDiscoverWorkItemTypes(args: any): Promise<HandlerResult> {
-    await ensureOrgConfigured();
-    
+    await ensureOrgConfigured(args.organization);
+
     try {
         // Use REST API to get work item types
         const params: any = {
             area: 'wit',
             resource: 'workitemtypes',
-            httpMethod: 'GET'
+            httpMethod: 'GET',
+            organization: args.organization
         };
-        
+
         if (args.project) {
             params.routeParameters = { project: args.project };
         }
-        
+
         const result = await azureDevOpsInvoke(params);
         const types = result.value || result || [];
         
@@ -279,8 +289,8 @@ export async function handleDiscoverWorkItemTypes(args: any): Promise<HandlerRes
 }
 
 export async function handleDiscoverStates(args: any): Promise<HandlerResult> {
-    await ensureOrgConfigured();
-    
+    const orgFlag = await getOrgFlag(args.organization);
+
     try {
         // First, we need a project context to get states
         // If no project is provided, try to get the default or first project
@@ -294,14 +304,15 @@ export async function handleDiscoverStates(args: any): Promise<HandlerResult> {
             } catch {
                 // No default project
             }
-            
+
             // If still no project, list projects and use the first one
             if (!project) {
                 try {
                     const projectList = await azureDevOpsInvoke({
                         area: 'core',
                         resource: 'projects',
-                        httpMethod: 'GET'
+                        httpMethod: 'GET',
+                        organization: args.organization
                     });
                     const projects = projectList.value || projectList || [];
                     if (projects.length > 0) {
@@ -328,7 +339,7 @@ export async function handleDiscoverStates(args: any): Promise<HandlerResult> {
         
         // Use az devops invoke directly with the proper resource path
         // The resource for states should include the work item type in the path
-        const command = `az devops invoke --area wit --resource "workitemtypes/${args.work_item_type}/states" --route-parameters project="${project}" --http-method GET --api-version 7.1 --output json`;
+        const command = `az devops invoke ${orgFlag} --area wit --resource "workitemtypes/${args.work_item_type}/states" --route-parameters project="${project}" --http-method GET --api-version 7.1 --output json`;
         
         try {
             const { stdout } = await execAsync(command);
@@ -359,7 +370,7 @@ export async function handleDiscoverStates(args: any): Promise<HandlerResult> {
         } catch (apiError: any) {
             // If the direct API call fails, try to get the work item type info
             try {
-                const typeCommand = `az devops invoke --area wit --resource workitemtypes --route-parameters project="${project}" --http-method GET --api-version 7.1 --output json`;
+                const typeCommand = `az devops invoke ${orgFlag} --area wit --resource workitemtypes --route-parameters project="${project}" --http-method GET --api-version 7.1 --output json`;
                 const { stdout: typeOut } = await execAsync(typeCommand);
                 const typeResult = JSON.parse(typeOut);
                 const types = typeResult.value || typeResult || [];
@@ -394,7 +405,7 @@ export async function handleDiscoverStates(args: any): Promise<HandlerResult> {
             
             // Final fallback: discover from existing items
             const query = `SELECT [System.State] FROM workitems WHERE [System.WorkItemType] = '${args.work_item_type}' AND [System.TeamProject] = '${project}'`;
-            const { stdout: queryOut } = await execAsync(`az boards query --wiql "${query}" --output json`);
+            const { stdout: queryOut } = await execAsync(`az boards query ${orgFlag} --wiql "${query}" --output json`);
             const items = JSON.parse(queryOut);
 
             // Get unique states from actual work items
@@ -444,10 +455,10 @@ export async function handleDiscoverStates(args: any): Promise<HandlerResult> {
 }
 
 export async function handleDiscoverRelationships(args: any): Promise<HandlerResult> {
-    await ensureOrgConfigured();
+    const orgFlag = await getOrgFlag(args.organization);
     // Look for work items that are likely to have relations (Epics, Features, or recently modified items)
     const query = `SELECT [System.Id] FROM workitems WHERE [System.WorkItemType] IN ('Epic', 'Feature', 'User Story', 'Task') ORDER BY [System.ChangedDate] DESC`;
-    const command = `az boards query --wiql "${query}" --output json`;
+    const command = `az boards query ${orgFlag} --wiql "${query}" --output json`;
 
     try {
         const { stdout: queryOut } = await execAsync(command);
@@ -461,7 +472,7 @@ export async function handleDiscoverRelationships(args: any): Promise<HandlerRes
         
         for (const item of items) {
             try {
-                const { stdout: itemOut } = await execAsync(`az boards work-item relation show --id ${item.id} --output json`);
+                const { stdout: itemOut } = await execAsync(`az boards work-item relation show ${orgFlag} --id ${item.id} --output json`);
                 const itemRelations = JSON.parse(itemOut);
                 
                 if (itemRelations.relations && itemRelations.relations.length > 0) {
@@ -522,12 +533,12 @@ export async function handleDiscoverRelationships(args: any): Promise<HandlerRes
 }
 
 export async function handleCheckFieldExists(args: any): Promise<HandlerResult> {
-    await ensureOrgConfigured();
-    
+    await ensureOrgConfigured(args.organization);
+
     try {
         // Use the field resolver which already has all fields cached
         const exists = await fieldResolver.fieldExists(args.field_name);
-        
+
         if (exists) {
             // Try to get field details via REST API
             try {
@@ -535,7 +546,8 @@ export async function handleCheckFieldExists(args: any): Promise<HandlerResult> 
                     area: 'wit',
                     resource: 'fields',
                     routeParameters: { field: args.field_name },
-                    httpMethod: 'GET'
+                    httpMethod: 'GET',
+                    organization: args.organization
                 });
                 
                 // Return only essential information, not the entire field object
@@ -593,7 +605,7 @@ export async function handleCheckFieldExists(args: any): Promise<HandlerResult> 
 }
 
 export async function handleGetDefaultProject(args: any): Promise<HandlerResult> {
-    await ensureOrgConfigured();
+    await ensureOrgConfigured(args.organization);
     try {
         const { stdout } = await execAsync('az devops configure --list --output json');
         const config = JSON.parse(stdout);
@@ -622,7 +634,7 @@ export async function handleGetDefaultProject(args: any): Promise<HandlerResult>
 }
 
 export async function handleHealthcheck(args: any): Promise<HandlerResult> {
-    await ensureOrgConfigured();
+    const orgFlag = await getOrgFlag(args.organization);
     const checks = {
         azure_cli: false,
         logged_in: false,
@@ -669,19 +681,20 @@ export async function handleHealthcheck(args: any): Promise<HandlerResult> {
 
     try {
         // Try a simple query
-        await execAsync('az boards query --wiql "SELECT [System.Id] FROM workitems WHERE [System.Id] = 1" --output json');
+        await execAsync(`az boards query ${orgFlag} --wiql "SELECT [System.Id] FROM workitems WHERE [System.Id] = 1" --output json`);
         checks.can_query = true;
     } catch {
         // Can't query
     }
-    
+
     try {
         // Check REST API access
         await azureDevOpsInvoke({
             area: 'wit',
             resource: 'fields',
             httpMethod: 'GET',
-            queryParameters: { '$top': '1' }
+            queryParameters: { '$top': '1' },
+            organization: args.organization
         });
         checks.rest_api_access = true;
     } catch {
